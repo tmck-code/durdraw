@@ -1,9 +1,10 @@
 from copy import deepcopy
-from durdraw.durdraw_options import Options
-import durdraw.log as log
 import json
 import pdb
 import re
+from typing import List, Tuple, NamedTuple
+
+import durdraw.log as log
 from durdraw.durdraw_undo import UndoRegister
 
 def init_list_colorMap(width, height):
@@ -132,6 +133,65 @@ class Frame():
     def initColorMap(self, fg=7, bg=0):
         """ Builds a list of lists """
         return [[[fg,0] * self.sizeY] * self.sizeX]
+
+class MouseState(NamedTuple):
+    x: int
+    y: int
+    frame: int
+
+class FrameState(NamedTuple):
+    delay: int
+
+class MovieState(NamedTuple):
+    sizeX: int
+    sizeY: int
+
+class PixelState(NamedTuple):
+    frame: int
+    x: int
+    y: int
+    ch: str
+    fg: int
+    bg: int
+
+class FileState(NamedTuple):
+    mouse: MouseState = None
+    movie: MovieState = None
+    frames: Tuple[FrameState] = tuple()
+    pixels: Tuple[PixelState] = tuple()
+
+class UndoStates(NamedTuple):
+    previous: FileState
+    current: FileState
+
+# UndoStates(
+#     previous=FileState(
+#         mouse=MouseState(8, 8, 0),
+#         frames=tuple(),
+#         movie=tuple(),
+#         pixels=(
+#             PixelState(0, 8, 8, ' ', 7, 0),
+#             PixelState(0, 9, 8, ' ', 7, 0),
+#             PixelState(0, 10, 8, ' ', 7, 0),
+#             PixelState(0, 8, 9, ' ', 7, 0),
+#             PixelState(0, 9, 9, ' ', 7, 0),
+#             PixelState(0, 10, 9, ' ', 7, 0),
+#         )
+#     ),
+#     current=FileState(
+#         mouse=MouseState(8, 8, 0),
+#         frames=tuple(),
+#         movie=tuple(),
+#         pixels=(
+#             PixelState(0, 8, 8, 'X', 7, 0),
+#             PixelState(0, 9, 8, 'X', 7, 0),
+#             PixelState(0, 10, 8, 'X', 7, 0),
+#             PixelState(0, 8, 9, 'X', 7, 0),
+#             PixelState(0, 9, 9, 'X', 7, 0),
+#             PixelState(0, 10, 9, 'X', 7, 0),
+#         ),
+#     )
+# )
 
 class Movie():
     """ Contains an array of Frames, options to add, remove, copy them """
