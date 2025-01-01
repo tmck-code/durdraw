@@ -7067,14 +7067,17 @@ Can use ESC or META instead of ALT
 
     def flipSegmentVertical(self, startPoint, height, width, frange=None):
         """ Flip the contents horizontally in the current frame, or framge range """
-        #self.undo.push()
-        # make a reverse copy
-        segment = self.copySegmentToBuffer(startPoint, height, width)
-        segment.flip_vertical()
+        current_pixel_states = []
 
-        # replace with our copy
-        self.pasteFromClipboard(clipBuffer = segment, frange=frange, startPoint=startPoint)
-        #self.pasteFromClipboard(frange=self.appState.playbackRange)
+        for y, rev_y in zip(range(startPoint[0], startPoint[0] + height), reversed(range(startPoint[0], startPoint[0] + height))):
+            for x in range(startPoint[1], startPoint[1]+width+1):
+                current_pixel_states.append(PixelState(
+                    frame=self.mov.currentFrameNumber-1, x=x, y=rev_y,
+                    ch=self.mov.currentFrame.content[y][x],
+                    fg=self.mov.currentFrame.newColorMap[y][x][0],
+                    bg=self.mov.currentFrame.newColorMap[y][x][1],
+                ))
+        self.push(FileState(movie=None, frames=None, mouse=None, pixels=current_pixel_states))
 
 
     def flipSegmentHorizontal(self, startPoint, height, width, frange=None):
