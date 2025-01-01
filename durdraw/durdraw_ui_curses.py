@@ -674,13 +674,39 @@ class UserInterface():  # Separate view (curses) from this controller
         except curses.error:
             pass    # .. if terminal supports it.
 
-    def push(self, undo_states: UndoStates):
-        self.mov.undo_register.push(undo_states)
-
-        if undo_states.current.pixels is not None:
-            for pixel_state in undo_states.current.pixels:
+    def push(self, file_state: FileState):
+        previous_pixels = []
+        if file_state.pixels is not None:
+            for pixel_state in file_state.pixels:
+                previous_pixels.append(
+                    PixelState(
+                        frame=pixel_state.frame,
+                        x=pixel_state.x,
+                        y=pixel_state.y,
+                        ch=self.mov.frames[pixel_state.frame].content[pixel_state.y][pixel_state.x],
+                        fg=self.mov.frames[pixel_state.frame].newColorMap[pixel_state.y][pixel_state.x][0],
+                        bg=self.mov.frames[pixel_state.frame].newColorMap[pixel_state.y][pixel_state.x][1],
+                    )
+                )
                 self.log.info('setting pixel in push', {'pixel_state': pixel_state})
                 self.mov.setChar(pixel_state.frame, pixel_state.x, pixel_state.y, pixel_state.ch, pixel_state.fg, pixel_state.bg)
+
+        previous_mouse = None
+        if file_state.mouse is not None:
+            previous_mouse = MouseState(x=self.xy[1], y=self.xy[0], frame=self.mov.currentFrameNumber-1)
+            # TODO: move the mouse here?
+
+        self.mov.undo_register.push(
+            UndoStates(
+                previous=FileState(
+                    mouse=previous_mouse,
+                    pixels=previous_pixels,
+                    movie=None, # TODO: implement example for movie/frame changes
+                    frames=None,
+                ),
+                current=file_state,
+            )
+        )
 
     def undo2(self):
         if not self.mov.undo_register.can_undo:
@@ -692,9 +718,11 @@ class UserInterface():  # Separate view (curses) from this controller
             for pixel_state in undo_states.previous.pixels:
                 self.log.info('setting pixel in undo', {'pixel_state': pixel_state})
                 self.mov.setChar(pixel_state.frame, pixel_state.x, pixel_state.y, pixel_state.ch, pixel_state.fg, pixel_state.bg)
-        
+
         if undo_states.previous.mouse is not None:
             self.log.info('moving cursor in undo', {'mouse': undo_states.previous.mouse})
+            if undo_states.previous.mouse.frame != self.mov.currentFrameNumber-1:
+                self.mov.gotoFrame(undo_states.previous.mouse.frame+1)
             self.xy = [undo_states.previous.mouse.y, undo_states.previous.mouse.x]
 
     def redo(self):
@@ -710,8 +738,9 @@ class UserInterface():  # Separate view (curses) from this controller
 
         if undo_states.current.mouse is not None:
             self.log.info('moving cursor in redo', {'mouse': undo_states.current.mouse})
+            if undo_states.current.mouse.frame != self.mov.currentFrameNumber-1:
+                self.mov.gotoFrame(undo_states.current.mouse.frame+1)
             self.xy = [undo_states.current.mouse.y, undo_states.current.mouse.x]
-
 
     def addstr(self, y, x, string, attr=None): # addstr(y, x, str[, attr]) and addstr(str[, attr])
         """ Wraps ncurses addstr in a try;except, prevents addstr from
@@ -873,8 +902,11 @@ class UserInterface():  # Separate view (curses) from this controller
         if y == None:
             y = self.xy[0]
 
+        if frange is None:
+            frange = [self.mov.currentFrameNumber, self.mov.currentFrameNumber]
+
         # TODO: UNDO - integrate this new system in place of the existing one.
-        previous_pixel_states, current_pixel_states, previous_mouse_state = [], [], MouseState(x=self.xy[1], y=self.xy[0], frame=self.mov.currentFrameNumber-1)
+        previous_pixel_states, current_pixel_states = [], []
         if frange:
             for fn in range(frange[0]-1, frange[1]):
                 previous_pixel_states.append(
@@ -887,38 +919,17 @@ class UserInterface():  # Separate view (curses) from this controller
                 current_pixel_states.append(
                     PixelState(frame=fn, x=x-1, y=y, ch=c, fg=fg, bg=bg)
                 )
-        else:
-            previous_pixel_states.append(
-                PixelState(
-                    frame=self.mov.currentFrameNumber-1, x=x-1, y=y,
-                    ch=self.mov.currentFrame.content[y][x-1],
-                    fg=self.mov.currentFrame.newColorMap[y][x-1][0], bg=self.mov.currentFrame.newColorMap[y][x-1][1]
-                )
-            )
-            current_pixel_states.append(
-                PixelState(frame=self.mov.currentFrameNumber-1, x=x-1, y=y, ch=c, fg=fg, bg=bg)
-            )
 
         current_new_mouse_state = None
         if x < self.mov.sizeX and moveCursor:
-            self.move_cursor_right()
             current_new_mouse_state = MouseState(x=self.xy[1], y=self.xy[0], frame=self.mov.currentFrameNumber-1)
 
-        undo_states = UndoStates(
-            previous=FileState(
-                mouse=previous_mouse_state,
-                movie=None,
-                frames=None,
-                pixels=previous_pixel_states,
-            ),
-            current=FileState(
-                mouse=current_new_mouse_state,
-                movie=None,
-                frames=None,
-                pixels=current_pixel_states,
-            )
+        self.push(
+            FileState(mouse=current_new_mouse_state, movie=None, frames=None, pixels=current_pixel_states)
         )
-        self.push(undo_states)
+
+        if current_new_mouse_state is not None:
+            self.move_cursor_right()
 
     def pickUpDrawingChar(self, col, line):
         # Sets the drawing chaaracter to the character under teh cusror.
@@ -7068,18 +7079,10 @@ Can use ESC or META instead of ALT
 
     def flipSegmentHorizontal(self, startPoint, height, width, frange=None):
         """ Flip the contents horizontally in the current frame, or framge range """
-
-        mouse_state = MouseState(frame=self.mov.currentFrameNumber, x=self.xy[1], y=self.xy[0])
-        previous_pixel_states, current_pixel_states = [], []
+        current_pixel_states = []
 
         for y in range(startPoint[0], startPoint[0] + height):
             for x, rev_x in zip(range(startPoint[1], startPoint[1]+width+1), reversed(range(startPoint[1], startPoint[1]+width+1))):
-                previous_pixel_states.append(PixelState(
-                    frame=self.mov.currentFrameNumber-1, x=x, y=y,
-                    ch=self.mov.currentFrame.content[y][x],
-                    fg=self.mov.currentFrame.newColorMap[y][x][0],
-                    bg=self.mov.currentFrame.newColorMap[y][x][1],
-                ))
                 current_pixel_states.append(PixelState(
                     frame=self.mov.currentFrameNumber-1, x=rev_x, y=y,
                     ch=self.mov.currentFrame.content[y][x],
@@ -7087,11 +7090,8 @@ Can use ESC or META instead of ALT
                     bg=self.mov.currentFrame.newColorMap[y][x][1],
                 ))
 
-        undo_states = UndoStates(
-            previous=FileState(movie=None, frames=None, mouse=mouse_state, pixels=previous_pixel_states),
-            current=FileState(movie=None, frames=None, mouse=mouse_state, pixels=current_pixel_states),
-        )
-        self.push(undo_states)
+        
+        self.push(FileState(movie=None, frames=None, mouse=None, pixels=current_pixel_states))
 
     def deleteSegment(self, startPoint, height, width, frange=None):
         """ Delete everyting in the current frame, or framge range """
