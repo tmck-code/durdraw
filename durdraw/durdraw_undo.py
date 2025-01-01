@@ -118,7 +118,7 @@ class UndoRegister:
         self.logger.debug('push', {'undoBuf': self.undoBuf, 'redoBuf': self.redoBuf})
 
     def undo(self):
-        if len(self.undoBuf) <= 1:
+        if not self.undoBuf:
             return None
         self.redoBuf.appendleft(self.undoBuf.pop())
         self.logger.debug('undo', {'undoBuf': self.undoBuf, 'redoBuf': self.redoBuf})
@@ -133,7 +133,7 @@ class UndoRegister:
 
     @property
     def can_undo(self):
-        return len(self.undoBuf) > 1
+        return bool(self.undoBuf)
 
     @property
     def can_redo(self):
