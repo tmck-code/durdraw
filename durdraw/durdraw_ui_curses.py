@@ -7067,34 +7067,30 @@ Can use ESC or META instead of ALT
 
     def flipSegmentVertical(self, startPoint, height, width, frange=None):
         """ Flip the contents horizontally in the current frame, or framge range """
-        current_pixel_states = []
-
-        for y, rev_y in zip(range(startPoint[0], startPoint[0] + height), reversed(range(startPoint[0], startPoint[0] + height))):
-            for x in range(startPoint[1], startPoint[1]+width+1):
-                current_pixel_states.append(PixelState(
-                    frame=self.mov.currentFrameNumber-1, x=x, y=rev_y,
-                    ch=self.mov.currentFrame.content[y][x],
-                    fg=self.mov.currentFrame.newColorMap[y][x][0],
-                    bg=self.mov.currentFrame.newColorMap[y][x][1],
-                ))
-        self.push(FileState(movie=None, frames=None, mouse=None, pixels=current_pixel_states))
-
+        self.flipSegment(startPoint, height, width, vertical=True, frange=frange)
 
     def flipSegmentHorizontal(self, startPoint, height, width, frange=None):
         """ Flip the contents horizontally in the current frame, or framge range """
-        current_pixel_states = []
+        self.flipSegment(startPoint, height, width, horizontal=True, frange=frange)
 
-        for y in range(startPoint[0], startPoint[0] + height):
+    def flipSegment(self, startPoint, height, width, horizontal=False, vertical=False, frange=None):
+        """ Flip the contents horizontally and/or vertically in the current frame, or framge range """
+        pixel_states = []
+
+        for y, rev_y in zip(range(startPoint[0], startPoint[0] + height), reversed(range(startPoint[0], startPoint[0] + height))):
             for x, rev_x in zip(range(startPoint[1], startPoint[1]+width+1), reversed(range(startPoint[1], startPoint[1]+width+1))):
-                current_pixel_states.append(PixelState(
-                    frame=self.mov.currentFrameNumber-1, x=rev_x, y=y,
+                pixel_states.append(PixelState(
+                    frame=self.mov.currentFrameNumber-1,
+                    x=rev_x if horizontal else x,
+                    y=rev_y if vertical else y,
                     ch=self.mov.currentFrame.content[y][x],
                     fg=self.mov.currentFrame.newColorMap[y][x][0],
                     bg=self.mov.currentFrame.newColorMap[y][x][1],
                 ))
+        mouse_state = MouseState(x=self.xy[1], y=self.xy[0], frame=self.mov.currentFrameNumber-1)
 
-        
-        self.push(FileState(movie=None, frames=None, mouse=None, pixels=current_pixel_states))
+        self.push(FileState(movie=None, frames=None, mouse=mouse_state, pixels=pixel_states))
+
 
     def deleteSegment(self, startPoint, height, width, frange=None):
         """ Delete everyting in the current frame, or framge range """
