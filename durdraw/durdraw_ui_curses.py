@@ -33,7 +33,7 @@ import durdraw.durdraw_file as durfile
 from durdraw.durdraw_ui_widgets import StatusBar
 import durdraw.durdraw_gui_manager as durgui
 import durdraw.durdraw_movie as durmovie
-from durdraw.durdraw_movie import UndoStates, FileState, PixelState, PixelCoord, FrameSegment
+from durdraw.durdraw_movie import UndoStates, FileState, PixelState, PixelCoord
 
 import durdraw.neofetcher as neofetcher
 import durdraw.durdraw_color_curses as dur_ansilib
