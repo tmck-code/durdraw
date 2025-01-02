@@ -7075,11 +7075,23 @@ Can use ESC or META instead of ALT
 
         self.push(FileState(movie=None, frames=None, mouse=mouse_state, pixels=pixel_states))
 
-
     def deleteSegment(self, startPoint, height, width, frange=None):
         """ Delete everyting in the current frame, or framge range """
+        self.fillSegment(
+            startPoint, height, width, frange=frange,
+            fillFg   = self.appState.defaultFgColor,
+            fillBg   = self.appState.defaultBgColor,
+            fillChar = ' ',
+        )
+
+    def fillSegment(self, startPoint, height, width, frange=None, fillFg=None, fillBg=None, fillChar="X"):
+        """ Fill everyting in the current frame, or framge range, with selected character+color """
         if frange is None:
             frange = [self.mov.currentFrameNumber, self.mov.currentFrameNumber]
+        if fillFg is None:
+            fillFg = self.colorfg
+        if fillBg is None:
+            fillBg = self.colorbg
 
         pixel_states = []
         for frameNum in range(frange[0] - 1, frange[1]):
@@ -7088,29 +7100,12 @@ Can use ESC or META instead of ALT
                     self.log.debug('deleting pixel', {'x': x, 'y': y, 'frame': frameNum, 'ch': ord(' ')})
                     pixel_states.append(PixelState(
                         coord=PixelCoord(frame=frameNum, x=x, y=y),
-                        ch=' ',
-                        fg=self.appState.defaultFgColor,
-                        bg=self.appState.defaultBgColor,
+                        ch=fillChar, fg=fillFg, bg=fillBg,
                     ))
         mouse_state = PixelCoord(x=self.xy[1], y=self.xy[0], frame=self.mov.currentFrameNumber-1)
 
         self.push(FileState(movie=None, frames=None, mouse=mouse_state, pixels=pixel_states))
 
-    def fillSegment(self, startPoint, height, width, frange=None, fillChar="X"):
-        """ Fill everyting in the current frame, or framge range, with selected character+color """
-        self.undo.push()
-        for lineNum in range(0, height):
-            for colNum in range(0, width):
-                charColumn = startPoint[1] + colNum
-                charLine = startPoint[0] + lineNum
-                character = ord(fillChar)
-                charFg = self.colorfg
-                charBg = self.colorbg
-                if charColumn < self.mov.sizeX + 1 and charLine < self.mov.sizeY:
-                    if not frange:
-                        self.insertChar(character, fg=charFg, bg=charBg, x=charColumn, y=charLine, pushUndo=False)
-                    else:
-                        self.insertChar(character, fg=charFg, bg=charBg, x=charColumn, y=charLine, pushUndo=False, frange=frange)
 
     def colorSegment(self, startPoint, height, width, frange=None):
         """ Color everyting in the current frame, or framge range, with selected color """
