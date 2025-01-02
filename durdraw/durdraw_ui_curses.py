@@ -908,7 +908,7 @@ class UserInterface():  # Separate view (curses) from this controller
         pixel_states = []
         for fn in range(frange[0]-1, frange[1]):
             pixel_states.append(
-                PixelState(coord=PixelCoord(frame=fn, x=x-1, y=y), ch=c, fg=fg, bg=bg)
+                PixelState(coord=PixelCoord(frame=fn, x=x-1, y=y), ch=chr(c), fg=fg, bg=bg)
             )
 
         mouse_state = None
