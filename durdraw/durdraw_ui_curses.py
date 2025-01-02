@@ -33,7 +33,7 @@ import durdraw.durdraw_file as durfile
 from durdraw.durdraw_ui_widgets import StatusBar
 import durdraw.durdraw_gui_manager as durgui
 import durdraw.durdraw_movie as durmovie
-from durdraw.durdraw_movie import UndoStates, FileState, MovieState, FrameState, MouseState, PixelState
+from durdraw.durdraw_movie import UndoStates, FileState, PixelState, PixelCoord, FrameSegment
 
 import durdraw.neofetcher as neofetcher
 import durdraw.durdraw_color_curses as dur_ansilib
@@ -676,25 +676,24 @@ class UserInterface():  # Separate view (curses) from this controller
 
     def push(self, file_state: FileState):
         previous_pixels = []
-        if file_state.pixels is not None:
-            for pixel_state in file_state.pixels:
-                previous_pixels.append(
-                    PixelState(
-                        frame=pixel_state.frame,
-                        x=pixel_state.x,
-                        y=pixel_state.y,
-                        ch=self.mov.frames[pixel_state.frame].content[pixel_state.y][pixel_state.x],
-                        fg=self.mov.frames[pixel_state.frame].newColorMap[pixel_state.y][pixel_state.x][0],
-                        bg=self.mov.frames[pixel_state.frame].newColorMap[pixel_state.y][pixel_state.x][1],
-                    )
+        for pixel_state in file_state.pixels:
+            previous_pixels.append(
+                PixelState(
+                    coord=pixel_state.coord,
+                    ch=self.mov.frames[pixel_state.coord.frame].content[pixel_state.coord.y][pixel_state.coord.x],
+                    fg=self.mov.frames[pixel_state.coord.frame].newColorMap[pixel_state.coord.y][pixel_state.coord.x][0],
+                    bg=self.mov.frames[pixel_state.coord.frame].newColorMap[pixel_state.coord.y][pixel_state.coord.x][1],
                 )
-                self.log.info('setting pixel in push', {'pixel_state': pixel_state})
-                self.mov.setChar(pixel_state.frame, pixel_state.x, pixel_state.y, pixel_state.ch, pixel_state.fg, pixel_state.bg)
+            )
+            self.log.info('setting pixel in push', {'pixel_state': pixel_state})
+            self.mov.setChar(
+                pixel_state.coord.frame, pixel_state.coord.x, pixel_state.coord.y,
+                pixel_state.ch, pixel_state.fg, pixel_state.bg,
+            )
 
         previous_mouse = None
         if file_state.mouse is not None:
-            previous_mouse = MouseState(x=self.xy[1], y=self.xy[0], frame=self.mov.currentFrameNumber-1)
-            # TODO: move the mouse here?
+            previous_mouse = PixelCoord(x=self.xy[1], y=self.xy[0], frame=self.mov.currentFrameNumber-1)
 
         self.mov.undo_register.push(
             UndoStates(
@@ -714,10 +713,12 @@ class UserInterface():  # Separate view (curses) from this controller
             return
 
         undo_states = self.mov.undo_register.undo()
-        if undo_states.previous.pixels is not None:
-            for pixel_state in undo_states.previous.pixels:
-                self.log.info('setting pixel in undo', {'pixel_state': pixel_state})
-                self.mov.setChar(pixel_state.frame, pixel_state.x, pixel_state.y, pixel_state.ch, pixel_state.fg, pixel_state.bg)
+        for pixel_state in undo_states.previous.pixels:
+            self.log.info('setting pixel in undo', {'pixel_state': pixel_state})
+            self.mov.setChar(
+                pixel_state.coord.frame, pixel_state.coord.x, pixel_state.coord.y,
+                pixel_state.ch, pixel_state.fg, pixel_state.bg,
+            )
 
         if undo_states.previous.mouse is not None:
             self.log.info('moving cursor in undo', {'mouse': undo_states.previous.mouse})
@@ -731,10 +732,12 @@ class UserInterface():  # Separate view (curses) from this controller
             return
 
         undo_states = self.mov.undo_register.redo()
-        if undo_states.current.pixels is not None:
-            for pixel_state in undo_states.current.pixels:
-                self.log.info('setting pixel in redo', {'pixel_state': pixel_state})
-                self.mov.setChar(pixel_state.frame, pixel_state.x, pixel_state.y, pixel_state.ch, pixel_state.fg, pixel_state.bg)
+        for pixel_state in undo_states.current.pixels:
+            self.log.info('setting pixel in redo', {'pixel_state': pixel_state})
+            self.mov.setChar(
+                pixel_state.coord.frame, pixel_state.coord.x, pixel_state.coord.y,
+                pixel_state.ch, pixel_state.fg, pixel_state.bg
+            )
 
         if undo_states.current.mouse is not None:
             self.log.info('moving cursor in redo', {'mouse': undo_states.current.mouse})
@@ -893,9 +896,6 @@ class UserInterface():  # Separate view (curses) from this controller
 
     def insertChar(self, c, fg=1, bg=0, frange=None, x=None, y=None, moveCursor = False, pushUndo=True):
         """ insert character at current location, move cursor to the right (unless at the edge of canvas) """
-        # TODO: UNDO - remove the old undo system when the new one is working.
-        # if pushUndo:    # push onto the clipboard stack
-        #     self.undo.push()
         if x == None:
             x = self.xy[1]
             moveCursor = True
@@ -905,30 +905,20 @@ class UserInterface():  # Separate view (curses) from this controller
         if frange is None:
             frange = [self.mov.currentFrameNumber, self.mov.currentFrameNumber]
 
-        # TODO: UNDO - integrate this new system in place of the existing one.
-        previous_pixel_states, current_pixel_states = [], []
-        if frange:
-            for fn in range(frange[0]-1, frange[1]):
-                previous_pixel_states.append(
-                    PixelState(
-                        frame=fn, x=x-1, y=y,
-                        ch=self.mov.frames[fn].content[y][x-1],
-                        fg=self.mov.frames[fn].newColorMap[y][x-1][0], bg=self.mov.frames[fn].newColorMap[y][x-1][1]
-                    )
-                )
-                current_pixel_states.append(
-                    PixelState(frame=fn, x=x-1, y=y, ch=c, fg=fg, bg=bg)
-                )
+        pixel_states = []
+        for fn in range(frange[0]-1, frange[1]):
+            pixel_states.append(
+                PixelState(coord=PixelCoord(frame=fn, x=x-1, y=y), ch=c, fg=fg, bg=bg)
+            )
 
-        current_new_mouse_state = None
+        mouse_state = None
         if x < self.mov.sizeX and moveCursor:
-            current_new_mouse_state = MouseState(x=self.xy[1], y=self.xy[0], frame=self.mov.currentFrameNumber-1)
+            mouse_state = PixelCoord(x=self.xy[1], y=self.xy[0], frame=self.mov.currentFrameNumber-1)
 
         self.push(
-            FileState(mouse=current_new_mouse_state, movie=None, frames=None, pixels=current_pixel_states)
+            FileState(mouse=mouse_state, movie=None, frames=None, pixels=pixel_states)
         )
-
-        if current_new_mouse_state is not None:
+        if mouse_state is not None:
             self.move_cursor_right()
 
     def pickUpDrawingChar(self, col, line):
@@ -6744,11 +6734,11 @@ Can use ESC or META instead of ALT
                     #if chr(prompt_ch) in ['m', 'M']:    # move
                     #    prompting = False
                     elif chr(prompt_ch) in ['x', 'X']:    # flip horizontally
-                        self.flipSegmentHorizontal([firstLineNum, firstColNum], height, width)
+                        self.flipSegment(startPoint, height, width, horizontal=True)
                         #prompting = False
                         self.refresh()
                     elif chr(prompt_ch) in ['y', 'Y']:    # flip vertically 
-                        self.flipSegmentVertical([firstLineNum, firstColNum], height, width)
+                        self.flipSegment(startPoint, height, width, vertical=True)
                         #prompting = False
                         self.refresh()
                     #    self.undo.push()
@@ -7065,48 +7055,46 @@ Can use ESC or META instead of ALT
             newColNum = 0
         return bufferFrame
 
-    def flipSegmentVertical(self, startPoint, height, width, frange=None):
-        """ Flip the contents horizontally in the current frame, or framge range """
-        self.flipSegment(startPoint, height, width, vertical=True, frange=frange)
-
-    def flipSegmentHorizontal(self, startPoint, height, width, frange=None):
-        """ Flip the contents horizontally in the current frame, or framge range """
-        self.flipSegment(startPoint, height, width, horizontal=True, frange=frange)
-
-    def flipSegment(self, startPoint, height, width, horizontal=False, vertical=False, frange=None):
+    def flipSegment(self, startPoint, height, width, horizontal=False, vertical=False):
         """ Flip the contents horizontally and/or vertically in the current frame, or framge range """
         pixel_states = []
 
         for y, rev_y in zip(range(startPoint[0], startPoint[0] + height), reversed(range(startPoint[0], startPoint[0] + height))):
             for x, rev_x in zip(range(startPoint[1], startPoint[1]+width+1), reversed(range(startPoint[1], startPoint[1]+width+1))):
                 pixel_states.append(PixelState(
-                    frame=self.mov.currentFrameNumber-1,
-                    x=rev_x if horizontal else x,
-                    y=rev_y if vertical else y,
+                    coord=PixelCoord(
+                        frame=self.mov.currentFrameNumber-1,
+                        x=rev_x if horizontal else x,
+                        y=rev_y if vertical else y,
+                    ),
                     ch=self.mov.currentFrame.content[y][x],
                     fg=self.mov.currentFrame.newColorMap[y][x][0],
                     bg=self.mov.currentFrame.newColorMap[y][x][1],
                 ))
-        mouse_state = MouseState(x=self.xy[1], y=self.xy[0], frame=self.mov.currentFrameNumber-1)
+        mouse_state = PixelCoord(x=self.xy[1], y=self.xy[0], frame=self.mov.currentFrameNumber-1)
 
         self.push(FileState(movie=None, frames=None, mouse=mouse_state, pixels=pixel_states))
 
 
     def deleteSegment(self, startPoint, height, width, frange=None):
         """ Delete everyting in the current frame, or framge range """
-        self.undo.push()
-        for lineNum in range(0, height):
-            for colNum in range(0, width):
-                charColumn = startPoint[1] + colNum
-                charLine = startPoint[0] + lineNum
-                character = ord(" ")
-                charFg = self.appState.defaultFgColor
-                charBg = self.appState.defaultBgColor
-                if charColumn < self.mov.sizeX + 1 and charLine < self.mov.sizeY:
-                    if not frange:
-                        self.insertChar(character, fg=charFg, bg=charBg, x=charColumn, y=charLine, pushUndo=False)
-                    else:
-                        self.insertChar(character, fg=charFg, bg=charBg, x=charColumn, y=charLine, pushUndo=False, frange=frange)
+        if frange is None:
+            frange = [self.mov.currentFrameNumber, self.mov.currentFrameNumber]
+
+        pixel_states = []
+        for frameNum in range(frange[0] - 1, frange[1]):
+            for y in range(startPoint[0], startPoint[0]+height):
+                for x in range(startPoint[1], startPoint[1]+width+1):
+                    self.log.debug('deleting pixel', {'x': x, 'y': y, 'frame': frameNum, 'ch': ord(' ')})
+                    pixel_states.append(PixelState(
+                        coord=PixelCoord(frame=frameNum, x=x, y=y),
+                        ch=' ',
+                        fg=self.appState.defaultFgColor,
+                        bg=self.appState.defaultBgColor,
+                    ))
+        mouse_state = PixelCoord(x=self.xy[1], y=self.xy[0], frame=self.mov.currentFrameNumber-1)
+
+        self.push(FileState(movie=None, frames=None, mouse=mouse_state, pixels=pixel_states))
 
     def fillSegment(self, startPoint, height, width, frange=None, fillChar="X"):
         """ Fill everyting in the current frame, or framge range, with selected character+color """

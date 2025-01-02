@@ -134,10 +134,10 @@ class Frame():
         """ Builds a list of lists """
         return [[[fg,0] * self.sizeY] * self.sizeX]
 
-class MouseState(NamedTuple):
-    x: int
-    y: int
+class PixelCoord(NamedTuple):
     frame: int
+    x:     int
+    y:     int
 
 class FrameState(NamedTuple):
     delay: int
@@ -147,16 +147,14 @@ class MovieState(NamedTuple):
     sizeY: int
 
 class PixelState(NamedTuple):
-    frame: int
-    x: int
-    y: int
-    ch: str
-    fg: int
-    bg: int
+    coord: PixelCoord
+    ch:    str
+    fg:    int
+    bg:    int
 
 class FileState(NamedTuple):
-    mouse: MouseState = None
-    movie: MovieState = None
+    mouse:  PixelCoord = None
+    movie:  MovieState = None
     frames: Tuple[FrameState] = tuple()
     pixels: Tuple[PixelState] = tuple()
 
