@@ -6734,11 +6734,13 @@ Can use ESC or META instead of ALT
                     #if chr(prompt_ch) in ['m', 'M']:    # move
                     #    prompting = False
                     elif chr(prompt_ch) in ['x', 'X']:    # flip horizontally
-                        self.flipSegment(startPoint, height, width, horizontal=True)
+                        self.log.debug('flipping horizontally', {'firstLineNum': firstLineNum, 'firstColNum': firstColNum, 'height': height, 'width': width})
+                        self.flipSegment([firstLineNum, firstColNum], height, width, horizontal=True)
                         #prompting = False
                         self.refresh()
                     elif chr(prompt_ch) in ['y', 'Y']:    # flip vertically 
-                        self.flipSegment(startPoint, height, width, vertical=True)
+                        self.log.debug('flipping vertically', {'firstLineNum': firstLineNum, 'firstColNum': firstColNum, 'height': height, 'width': width})
+                        self.flipSegment([firstLineNum, firstColNum], height, width, vertical=True)
                         #prompting = False
                         self.refresh()
                     #    self.undo.push()
@@ -7059,8 +7061,12 @@ Can use ESC or META instead of ALT
         """ Flip the contents horizontally and/or vertically in the current frame, or framge range """
         pixel_states = []
 
-        for y, rev_y in zip(range(startPoint[0], startPoint[0] + height), reversed(range(startPoint[0], startPoint[0] + height))):
-            for x, rev_x in zip(range(startPoint[1], startPoint[1]+width+1), reversed(range(startPoint[1], startPoint[1]+width+1))):
+        yrange = range(startPoint[0], startPoint[0] + height)
+        xrange = range(startPoint[1], startPoint[1]-1+width) # TODO: fix this -1 hack!
+
+        for y, rev_y in zip(yrange, reversed(yrange)):
+            for x, rev_x in zip(xrange, reversed(xrange)):
+                self.log.debug('flipping pixel', {'x': x, 'y': y, 'frame': self.mov.currentFrameNumber-1, 'sizeX': self.mov.sizeX, 'sizeY': self.mov.sizeY})
                 pixel_states.append(PixelState(
                     coord=PixelCoord(
                         frame=self.mov.currentFrameNumber-1,
@@ -7096,7 +7102,7 @@ Can use ESC or META instead of ALT
         pixel_states = []
         for frameNum in range(frange[0] - 1, frange[1]):
             for y in range(startPoint[0], startPoint[0]+height):
-                for x in range(startPoint[1], startPoint[1]+width+1):
+                for x in range(startPoint[1], startPoint[1]-1+width): # TODO: fix this -1 hack!
                     self.log.debug('deleting pixel', {'x': x, 'y': y, 'frame': frameNum, 'ch': ord(' ')})
                     pixel_states.append(PixelState(
                         coord=PixelCoord(frame=frameNum, x=x, y=y),
