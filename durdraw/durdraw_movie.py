@@ -216,6 +216,26 @@ class Movie():
         self.frames[frame_n].content[y][x] = c
         self.frames[frame_n].newColorMap[y][x] = [fg, bg]
 
+    def segment_pixel_states(self, start_x, start_y, segment, frame_numbers):
+        for frame_n in frame_numbers:
+            for y in range(start_y, start_y + segment.height):
+                for x in range(start_x, start_x + segment.width):
+                    coord = PixelCoord(frame=frame_n, x=x, y=y)
+                    self.log.debug('segment_pixel_states', {'coord': coord})
+                    new_state = PixelState(
+                        coord = coord,
+                        ch    = segment.content[y-start_y][x-start_x],
+                        fg    = segment.color_map[y-start_y][x-start_x][0],
+                        bg    = segment.color_map[y-start_y][x-start_x][1],
+                    )
+                    old_state = PixelState(
+                        coord = coord,
+                        ch   = self.frames[frame_n].content[y][x],
+                        fg   = self.frames[frame_n].newColorMap[y][x][0],
+                        bg   = self.frames[frame_n].newColorMap[y][x][1],
+                    )
+                    yield old_state, new_state
+
     def addFrame(self, frame):
         """ takes a Frame object, adds it into the movie """
         self.frames.append(frame)
