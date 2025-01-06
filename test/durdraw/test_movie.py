@@ -23,13 +23,13 @@ class TestSegment:
             frame, start_x=1, start_y=1, end_x=3, end_y=4,
         )
         expected = movie.FrameSegment(
-            content = [
+            content=[
                 [' ', '*', ' '],
                 [' ', '*', ' '],
                 ['*', '*', ' '],
                 ['*', '*', ' '],
             ],
-            color_map = [
+            color_map=[
                 [[0, 7], [0, 11], [0, 7]],
                 [[0, 7], [0, 11], [0, 7]],
                 [[1, 2], [0, 11], [0, 7]],
@@ -41,20 +41,20 @@ class TestSegment:
 
     def test_flip_horizontal(self):
         'flip_horizontal flips the segment horizontally'
-        content = [
-            [' ', '*', ' '],
-            [' ', '*', ' '],
-            ['*', '*', ' '],
-            ['*', '*', ' '],
-        ]
-        color_map = [
-            [[0, 7], [0, 11], [0, 7]],
-            [[0, 7], [0, 11], [0, 7]],
-            [[1, 2], [0, 11], [0, 7]],
-            [[3, 4], [0, 11], [0, 7]],
-        ]
-
-        segment = movie.FrameSegment(content=content, color_map=color_map)
+        segment = movie.FrameSegment(
+            content=[
+                [' ', '*', ' '],
+                [' ', '*', ' '],
+                ['*', '*', ' '],
+                ['*', '*', ' '],
+            ],
+            color_map=[
+                [[0, 7], [0, 11], [0, 7]],
+                [[0, 7], [0, 11], [0, 7]],
+                [[1, 2], [0, 11], [0, 7]],
+                [[3, 4], [0, 11], [0, 7]],
+            ]
+        )
         flipped = segment.flip(horizontal=True)
 
         expected = movie.FrameSegment(
@@ -75,20 +75,20 @@ class TestSegment:
 
     def test_flip_vertical(self):
         'flip_vertical flips the segment vertically'
-        content = [
-            [' ', '*', ' '],
-            [' ', '*', ' '],
-            ['*', '*', ' '],
-            ['*', '*', ' '],
-        ]
-        color_map = [
-            [[0, 7], [0, 11], [0, 7]],
-            [[0, 7], [0, 11], [0, 7]],
-            [[1, 2], [0, 11], [0, 7]],
-            [[3, 4], [0, 11], [0, 7]],
-        ]
-
-        segment = movie.FrameSegment(content=content, color_map=color_map)
+        segment = movie.FrameSegment(
+            content=[
+                [' ', '*', ' '],
+                [' ', '*', ' '],
+                ['*', '*', ' '],
+                ['*', '*', ' '],
+            ],
+            color_map=[
+                [[0, 7], [0, 11], [0, 7]],
+                [[0, 7], [0, 11], [0, 7]],
+                [[1, 2], [0, 11], [0, 7]],
+                [[3, 4], [0, 11], [0, 7]],
+            ],
+        )
         flipped = segment.flip(vertical=True)
 
         expected = movie.FrameSegment(
@@ -109,20 +109,21 @@ class TestSegment:
 
     def test_flip_both(self):
         'flip_both flips the segment both horizontally and vertically'
-        content = [
-            [' ', '*', ' '],
-            [' ', '*', ' '],
-            ['*', '*', ' '],
-            ['*', '*', ' '],
-        ]
-        color_map = [
-            [[0, 7], [0, 11], [0, 7]],
-            [[0, 7], [0, 11], [0, 7]],
-            [[1, 2], [0, 11], [0, 7]],
-            [[3, 4], [0, 11], [0, 7]],
-        ]
 
-        segment = movie.FrameSegment(content=content, color_map=color_map)
+        segment = movie.FrameSegment(
+            content=[
+                [' ', '*', ' '],
+                [' ', '*', ' '],
+                ['*', '*', ' '],
+                ['*', '*', ' '],
+            ],
+            color_map=[
+                [[0, 7], [0, 11], [0, 7]],
+                [[0, 7], [0, 11], [0, 7]],
+                [[1, 2], [0, 11], [0, 7]],
+                [[3, 4], [0, 11], [0, 7]],
+            ]
+        )
         flipped = segment.flip(horizontal=True, vertical=True)
 
         expected = movie.FrameSegment(
@@ -142,21 +143,21 @@ class TestSegment:
         assert expected == flipped
 
     def test_fill(self):
-        'fill fills the segment with a character'
-        content = [
-            [' ', '*', ' '],
-            [' ', '*', ' '],
-            ['*', '*', ' '],
-            ['*', '*', ' '],
-        ]
-        color_map = [
-            [[0, 7], [0, 11], [0, 7]],
-            [[0, 7], [0, 11], [0, 7]],
-            [[1, 2], [0, 11], [0, 7]],
-            [[3, 4], [0, 11], [0, 7]],
-        ]
-
-        segment = movie.FrameSegment(content=content, color_map=color_map)
+        'fills the segment with a specific character and color'
+        segment = movie.FrameSegment(
+            content=[
+                [' ', '*', ' '],
+                [' ', '*', ' '],
+                ['*', '*', ' '],
+                ['*', '*', ' '],
+            ],
+            color_map=[
+                [[0, 7], [0, 11], [0, 7]],
+                [[0, 7], [0, 11], [0, 7]],
+                [[1, 2], [0, 11], [0, 7]],
+                [[3, 4], [0, 11], [0, 7]],
+            ]
+        )
         filled = segment.fill(char='*', fg=0, bg=7)
 
         expected = movie.FrameSegment(
@@ -171,6 +172,62 @@ class TestSegment:
                 [[0, 7], [0, 7], [0, 7]],
                 [[0, 7], [0, 7], [0, 7]],
                 [[0, 7], [0, 7], [0, 7]],
+            ],
+        )
+        assert expected == filled
+
+    def test_fill_char(self):
+        'fills the segment with a specific character'
+        segment = movie.FrameSegment(
+            content=[
+                [' ', '*', ' '],
+                [' ', '*', ' '],
+                ['*', '*', ' '],
+                ['*', '*', ' '],
+            ],
+            color_map=[
+                [[0, 7], [0, 11], [0, 7]],
+                [[0, 7], [0, 11], [0, 7]],
+                [[1, 2], [0, 11], [0, 7]],
+                [[3, 4], [0, 11], [0, 7]],
+            ]
+        )
+        filled = segment.fillChar(char='*')
+        expected = movie.FrameSegment(
+            content=[
+                ['*', '*', '*'],
+                ['*', '*', '*'],
+                ['*', '*', '*'],
+                ['*', '*', '*'],
+            ],
+            color_map=segment.color_map,
+        )
+        assert expected == filled
+
+    def test_fill_color(self):
+        'fills the segment with a specific color'
+        segment = movie.FrameSegment(
+            content=[
+                [' ', '*', ' '],
+                [' ', '*', ' '],
+                ['*', '*', ' '],
+                ['*', '*', ' '],
+            ],
+            color_map=[
+                [[0, 7], [0, 11], [0, 7]],
+                [[0, 7], [0, 11], [0, 7]],
+                [[1, 2], [0, 11], [0, 7]],
+                [[3, 4], [0, 11], [0, 7]],
+            ]
+        )
+        filled = segment.fillColor(fg=11, bg=12)
+        expected = movie.FrameSegment(
+            content=segment.content,
+            color_map=[
+                [[11, 12], [11, 12], [11, 12]],
+                [[11, 12], [11, 12], [11, 12]],
+                [[11, 12], [11, 12], [11, 12]],
+                [[11, 12], [11, 12], [11, 12]],
             ],
         )
         assert expected == filled

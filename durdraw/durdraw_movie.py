@@ -170,7 +170,7 @@ class FrameSegment:
         return new_matrix
 
     def flip(self, horizontal=False, vertical=False) -> FrameSegment:
-        'Flip the contents horizontally and/or vertically in the current frame, or frame range'
+        'Flip the contents horizontally and/or vertically'
         return FrameSegment(
             content   = FrameSegment._flip_matrix(self.content, self.width, self.height, horizontal, vertical),
             color_map = FrameSegment._flip_matrix(self.color_map, self.width, self.height, horizontal, vertical),
@@ -184,6 +184,23 @@ class FrameSegment:
                 list(repeat([fg, bg], self.width)),
                 self.height
             ))
+        )
+
+    def fillColor(self, fg: int, bg: int) -> FrameSegment:
+        'Fill the contents with a color'
+        return FrameSegment(
+            content   = self.content,
+            color_map = list(repeat(
+                list(repeat([fg, bg], self.width)),
+                self.height
+            ))
+        )
+
+    def fillChar(self, char: str) -> FrameSegment:
+        'Fill the contents with a character'
+        return FrameSegment(
+            content   = [[char] * self.width] * self.height,
+            color_map = self.color_map
         )
 
 class Movie():
