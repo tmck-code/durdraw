@@ -152,6 +152,14 @@ class FrameSegment:
         self.width = len(self.content[0])
 
     @staticmethod
+    def from_frame(frame, start_x, start_y, end_x, end_y) -> FrameSegment:
+        'Extract a segment from the frame'
+        return FrameSegment(
+            content   = [row[start_x:end_x+1] for row in frame.content[start_y:end_y+1]],
+            color_map = [row[start_x:end_x+1] for row in frame.newColorMap[start_y:end_y+1]],
+        )
+
+    @staticmethod
     def _flip_matrix(matrix, width, height, horizontal=False, vertical=False):
         xrange, yrange, new_matrix = range(width), range(height), []
 
