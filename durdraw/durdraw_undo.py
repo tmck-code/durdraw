@@ -113,20 +113,20 @@ class UndoRegister:
         if self.redoBuf:
             self.redoBuf.clear()
         self.undoBuf.append(el)
-        self.logger.debug('push', {'undoBuf': self.undoBuf, 'redoBuf': self.redoBuf})
+        self.logger.debug('push', {'undoBuf': [list(self.undoBuf)[-2:-1]], 'redoBuf': [list(self.redoBuf)[-2:-1]]})
 
     def undo(self):
         if not self.undoBuf:
             return None
         self.redoBuf.appendleft(self.undoBuf.pop())
-        self.logger.debug('undo', {'undoBuf': self.undoBuf, 'redoBuf': self.redoBuf})
+        self.logger.debug('undo', {'undoBuf': [list(self.undoBuf)[-2:-1]], 'redoBuf': [list(self.redoBuf)[-2:-1]]})
         return self.redoBuf[0]
 
     def redo(self):
         if not self.redoBuf:
             return None
         self.undoBuf.append(self.redoBuf.popleft())
-        self.logger.debug('redo', {'undoBuf': self.undoBuf, 'redoBuf': self.redoBuf})
+        self.logger.debug('redo', {'undoBuf': [list(self.undoBuf)[-2:-1]], 'redoBuf': [list(self.redoBuf)[-2:-1]]})
         return self.undoBuf[-1]
 
     @property
