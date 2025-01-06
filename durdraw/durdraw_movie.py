@@ -1,6 +1,7 @@
 from __future__ import annotations
 from copy import deepcopy
 from dataclasses import dataclass, field
+from itertools import repeat
 import json
 import pdb
 import re
@@ -140,8 +141,8 @@ class UndoStates(NamedTuple):
 
 @dataclass
 class FrameSegment:
-    content:   List[List[str]]
-    color_map: List[List[int]]
+    content:   list
+    color_map: list
     height:    int = field(init=False)
     width:     int = field(init=False)
 
@@ -165,6 +166,16 @@ class FrameSegment:
         return FrameSegment(
             content   = FrameSegment._flip_matrix(self.content, self.width, self.height, horizontal, vertical),
             color_map = FrameSegment._flip_matrix(self.color_map, self.width, self.height, horizontal, vertical),
+        )
+
+    def fill(self, char: str, fg: int, bg: int) -> FrameSegment:
+        'Fill the contents with a character and color'
+        return FrameSegment(
+            content   = [[char] * self.width] * self.height,
+            color_map = list(repeat(
+                list(repeat([fg, bg], self.width)),
+                self.height
+            ))
         )
 
 class Movie():
