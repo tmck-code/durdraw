@@ -2,9 +2,7 @@ import durdraw.durdraw_movie as movie
 
 class TestSegment:
 
-    def test_flip_horizontal(self):
-        'flip_horizontal flips the segment horizontally'
-
+    def test_segment(self):
         frame = movie.Frame(5, 5)
         expected_content = [
             [' ', ' ', ' ', ' ', ' '],
@@ -34,7 +32,7 @@ class TestSegment:
 
         segment = movie.FrameSegment(
             content=[row[start_x:end_x+1] for row in frame.content[start_y:end_y+1]],
-            colour_map=[row[start_x:end_x+1] for row in frame.newColorMap[start_y:end_y+1]],
+            color_map=[row[start_x:end_x+1] for row in frame.newColorMap[start_y:end_y+1]],
         )
         expected_content = [
             [' ', '*', ' '],
@@ -43,7 +41,24 @@ class TestSegment:
             ['*', '*', ' '],
         ]
         assert expected_content == segment.content
+         
 
+    def test_flip_horizontal(self):
+        'flip_horizontal flips the segment horizontally'
+        content = [
+            [' ', '*', ' '],
+            [' ', '*', ' '],
+            ['*', '*', ' '],
+            ['*', '*', ' '],
+        ]
+        color_map = [
+            [(0, 7), (0, 11), (0, 7)],
+            [(0, 7), (0, 11), (0, 7)],
+            [(1, 2), (0, 11), (0, 7)],
+            [(3, 4), (0, 11), (0, 7)],
+        ]
+
+        segment = movie.FrameSegment(content=content, color_map=color_map)
         flipped = segment.flip(horizontal=True)
 
         expected = movie.FrameSegment(
@@ -53,11 +68,45 @@ class TestSegment:
                 [' ', '*', '*'],
                 [' ', '*', '*'],
             ],
-            colour_map=[
+            color_map=[
                 [(0, 7), (0, 11), (0, 7)],
                 [(0, 7), (0, 11), (0, 7)],
                 [(0, 7), (0, 11), (1, 2)],
                 [(0, 7), (0, 11), (3, 4)],
+            ],
+        )
+        assert expected == flipped
+
+    def test_flip_vertical(self):
+        'flip_vertical flips the segment vertically'
+        content = [
+            [' ', '*', ' '],
+            [' ', '*', ' '],
+            ['*', '*', ' '],
+            ['*', '*', ' '],
+        ]
+        color_map = [
+            [(0, 7), (0, 11), (0, 7)],
+            [(0, 7), (0, 11), (0, 7)],
+            [(1, 2), (0, 11), (0, 7)],
+            [(3, 4), (0, 11), (0, 7)],
+        ]
+
+        segment = movie.FrameSegment(content=content, color_map=color_map)
+        flipped = segment.flip(vertical=True)
+
+        expected = movie.FrameSegment(
+            content=[
+                ['*', '*', ' '],
+                ['*', '*', ' '],
+                [' ', '*', ' '],
+                [' ', '*', ' '],
+            ],
+            color_map=[
+                [(3, 4), (0, 11), (0, 7)],
+                [(1, 2), (0, 11), (0, 7)],
+                [(0, 7), (0, 11), (0, 7)],
+                [(0, 7), (0, 11), (0, 7)],
             ],
         )
         assert expected == flipped

@@ -85,21 +85,6 @@ class Frame():
         self.log = log.getLogger('frame')
         self.log.info('frame initialized', {'width': width, 'height': height})
 
-    def flip_vertical(self):
-        for x in range(0, self.height):
-            #for y in range(0, self.width):
-            # reverse slicing trick
-            self.content[x] = self.content[x][::-1]
-            #self.content[x][0] = self.content[x][0][::-1]
-            self.newColorMap[x].reverse()
-
-    #def flip_horizontal_segment(self, startPoint, height, width, frange=None):
-    #    """ Finish writing this, use it for the alt-k select """
-    #    for x in range(0, self.height):
-    #        self.content[x].reverse()
-    #        self.newColorMap[x].reverse()
-
-
     def setWidth(self, width):
         self.sizeX = width
         self.width = width
@@ -124,6 +109,7 @@ class Frame():
     def initColorMap(self, fg=7, bg=0):
         """ Builds a list of lists """
         return [[[fg,0] * self.sizeY] * self.sizeX]
+
 class PixelCoord(NamedTuple):
     frame: int
     x:     int
@@ -154,10 +140,10 @@ class UndoStates(NamedTuple):
 
 @dataclass
 class FrameSegment:
-    content:      List[List[str]]
-    colour_map:   List[List[int]]
-    height:       int = field(init=False)
-    width:        int = field(init=False)
+    content:   List[List[str]]
+    color_map: List[List[int]]
+    height:    int = field(init=False)
+    width:     int = field(init=False)
 
     def __post_init__(self):
         self.log = log.getLogger('frame_segment')
@@ -177,8 +163,8 @@ class FrameSegment:
     def flip(self, horizontal=False, vertical=False) -> FrameSegment:
         'Flip the contents horizontally and/or vertically in the current frame, or frame range'
         return FrameSegment(
-            content    = FrameSegment._flip_matrix(self.content, self.width, self.height, horizontal, vertical),
-            colour_map = FrameSegment._flip_matrix(self.colour_map, self.width, self.height, horizontal, vertical),
+            content   = FrameSegment._flip_matrix(self.content, self.width, self.height, horizontal, vertical),
+            color_map = FrameSegment._flip_matrix(self.color_map, self.width, self.height, horizontal, vertical),
         )
 
 class Movie():
