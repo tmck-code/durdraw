@@ -7,7 +7,9 @@ class TestUndo:
     def test_push(self):
         'initial state is set, push adds new state to the undo buffer'
 
-        r = undo.UndoRegister(1)
+        r = undo.UndoRegister()
+        assert r.state is None
+        r.push(1)
         assert r.state == 1
 
         r.push(2)
@@ -17,7 +19,8 @@ class TestUndo:
     def test_undo(self):
         'undo returns the previous state, and removes it from the undo buffer'
 
-        r = undo.UndoRegister(1)
+        r = undo.UndoRegister()
+        r.push(1)
         r.push(2)
         r.push(3)
         assert r.state == 3
@@ -29,32 +32,36 @@ class TestUndo:
     def test_undo_no_history(self):
         'undo returns None if there is no history to undo'
 
-        r = undo.UndoRegister(1)
-        assert r.state == 1
+        r = undo.UndoRegister()
 
-        # cannot undo if only initial state
-        assert r.undo() == None
-        assert r.undoBuf, r.redoBuf == (deque([1]), deque())
+        # cannot undo if nothing has been pushed
+        assert r.state is None
+        assert r.undo() is None
+        assert r.undoBuf == deque()
+        assert r.redoBuf == deque()
 
-        # push a new state
+        # push new states
+        r.push(1)
         r.push(2)
         assert r.state == 2
-        assert r.undoBuf, r.redoBuf == (deque([1,2]), deque())
+        assert r.undoBuf, r.redoBuf == (deque([1, 2]), deque())
 
         # then undo that state
         assert r.undo() == 2
         assert r.state == 1
         assert r.undoBuf, r.redoBuf == (deque([1]), deque([2]))
 
+        assert r.undo() == 1
         # cannot undo again, only state
-        assert r.undo() == None
+        assert r.undo() is None
 
     def test_redo(self):
         'redo returns the next state, and removes it from the redo buffer'
 
-        r = undo.UndoRegister(1) # initial state, cannot be undone
-        r.push(2) # 1st change
-        r.push(3) # 2nd change
+        r = undo.UndoRegister()
+        r.push(1) # 1st change
+        r.push(2) # 2nd change
+        r.push(3) # 3rd change
         assert r.state == 3
 
         # undo twice, to the beginning of the undo buf
@@ -77,11 +84,12 @@ class TestUndo:
     def test_redo_no_history(self):
         'redo returns None if there is no history to redo'
 
-        r = undo.UndoRegister(1)
+        r = undo.UndoRegister()
+        r.push(1)
         r.push(2)
 
         # cannot redo if no undos were made
-        assert r.redo() == None
+        assert r.redo() is None
 
         # undo
         assert r.undo() == 2
@@ -94,12 +102,13 @@ class TestUndo:
         assert r.undoBuf, r.redoBuf == (deque([1,2]), deque())
 
         # cannot redo again
-        assert r.redo() == None
+        assert r.redo() is None
 
     def test_redo_push(self):
         'redo buffer is cleared when a new state is pushed after undo'
 
-        r = undo.UndoRegister(1)
+        r = undo.UndoRegister()
+        r.push(1)
         r.push(2)
         r.push(3)
 
@@ -118,7 +127,7 @@ class TestUndo:
         assert r.undoBuf, r.redoBuf == (deque([1,4]), deque())
 
         # cannot redo if a new state has been pushed
-        assert r.redo() == None
+        assert r.redo() is None
         assert r.state == 4
         assert r.undoBuf, r.redoBuf == (deque([1,4]), deque())
 
@@ -127,7 +136,8 @@ class TestUndo:
         state = namedtuple('state', 'a b c')
         s0, s1, s2 = state(0,0,0), state(1,2,3), state(4,5,6)
 
-        r = undo.UndoRegister(s1)
+        r = undo.UndoRegister()
+        r.push(s0)
         r.push(s1)
 
         assert r.state == s1

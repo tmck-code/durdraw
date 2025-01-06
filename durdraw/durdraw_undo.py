@@ -105,11 +105,9 @@ class UndoManager():  # pass it a UserInterface object so Undo can tell UI
 class UndoRegister:
     __slots__ = ['undoBuf', 'redoBuf', 'logger']
 
-    def __init__(self, initial_state=None):
+    def __init__(self):
         self.logger = log.getLogger('undo_register')
         self.undoBuf, self.redoBuf = deque(), deque()
-        if initial_state:
-            self.undoBuf.append(initial_state)
 
     def push(self, el):
         if self.redoBuf:
@@ -141,7 +139,9 @@ class UndoRegister:
 
     @property
     def state(self):
-        return self.undoBuf[-1]
+        if self.undoBuf:
+            return self.undoBuf[-1]
+        return None
 
     @property
     def buffers(self):
