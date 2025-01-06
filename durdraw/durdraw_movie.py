@@ -151,7 +151,7 @@ class FrameSegment:
         self.width = len(self.content[0])
 
     @staticmethod
-    def _flip_matrix(matrix, width, height, horizontal=False, vertical=False) -> List[List[str]]:
+    def _flip_matrix(matrix, width, height, horizontal=False, vertical=False):
         xrange, yrange, new_matrix = range(width), range(height), []
 
         for y, rev_y in zip(yrange, reversed(yrange)):
