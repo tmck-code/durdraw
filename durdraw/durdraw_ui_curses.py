@@ -681,25 +681,14 @@ class UserInterface():  # Separate view (curses) from this controller
                 current=FileState(mouse=new_mouse_state, pixels=new_pixels),
             )
         )
-        for pixel_state in new_pixels:
-            self.log.info('setting pixel in push', {'pixel_state': pixel_state})
-            self.mov.setChar(
-                pixel_state.coord.frame, pixel_state.coord.x, pixel_state.coord.y,
-                pixel_state.ch, pixel_state.fg, pixel_state.bg,
-            )
+        self.mov.applyStates(new_pixels)
 
     def undo2(self):
         if not self.mov.undo_register.can_undo:
             self.log.debug('undo', {'msg': 'nothing to undo'})
             return
-
         undo_states = self.mov.undo_register.undo()
-        for pixel_state in undo_states.previous.pixels:
-            self.log.info('setting pixel in undo', {'pixel_state': pixel_state})
-            self.mov.setChar(
-                pixel_state.coord.frame, pixel_state.coord.x, pixel_state.coord.y,
-                pixel_state.ch, pixel_state.fg, pixel_state.bg,
-            )
+        self.mov.applyStates(undo_states.previous.pixels)
 
         if undo_states.previous.mouse is not None:
             self.log.info('moving cursor in undo', {'mouse': undo_states.previous.mouse})
@@ -711,14 +700,8 @@ class UserInterface():  # Separate view (curses) from this controller
         if not self.mov.undo_register.can_redo:
             self.log.debug('redo', {'msg': 'nothing to redo'})
             return
-
         undo_states = self.mov.undo_register.redo()
-        for pixel_state in undo_states.current.pixels:
-            self.log.info('setting pixel in redo', {'pixel_state': pixel_state})
-            self.mov.setChar(
-                pixel_state.coord.frame, pixel_state.coord.x, pixel_state.coord.y,
-                pixel_state.ch, pixel_state.fg, pixel_state.bg
-            )
+        self.mov.applyStates(undo_states.current.pixels)
 
         if undo_states.current.mouse is not None:
             self.log.info('moving cursor in redo', {'mouse': undo_states.current.mouse})
@@ -7056,22 +7039,7 @@ Can use ESC or META instead of ALT
             horizontal=horizontal, vertical=vertical
         )
         self.log.debug('flipped segment', {'flipped': flipped, 'startPoint': startPoint, 'height': height, 'width': width})
-        old_pixel_states, new_pixel_states = [], []
-
-        states = self.mov.segment_pixel_states(
-            start_x=startPoint[1], start_y=startPoint[0],
-            segment=flipped,
-            frame_numbers=[self.mov.currentFrameNumber-1],
-        )
-        for old_state, new_state in states:
-            old_pixel_states.append(old_state)
-            new_pixel_states.append(new_state)
-
-        mouse_state = PixelCoord(x=self.xy[1], y=self.xy[0], frame=self.mov.currentFrameNumber-1)
-        self.push(
-            old_mouse_state=mouse_state, new_mouse_state=mouse_state,
-            old_pixels=old_pixel_states, new_pixels=new_pixel_states
-        )
+        self.applySegmentChange(flipped, startPoint[1], startPoint[0], [self.mov.currentFrameNumber-1])
 
     def deleteSegment(self, startPoint, height, width, frange=None):
         """ Delete everyting in the current frame, or framge range """
@@ -7094,22 +7062,20 @@ Can use ESC or META instead of ALT
         ).fill(
             char=fillChar, fg=fillFg or self.appState.defaultFgColor, bg=fillBg or self.appState.defaultBgColor,
         )
-        old_pixel_states, new_pixel_states = [], []
         self.log.debug('filled segment', {'filled': filled, 'startPoint': startPoint, 'height': height, 'width': width})
+        self.applySegmentChange(filled, startPoint[1], startPoint[0], frange)
 
-        states = self.mov.segment_pixel_states(
-            start_x=startPoint[1], start_y=startPoint[0],
-            segment=filled,
-            frame_numbers=frange,
+    def applySegmentChange(self, frame_segment, start_x, start_y, frame_numbers):
+        old_pixel_states, new_pixel_states = self.mov.segment_pixel_states(
+            start_x=start_x, start_y=start_y,
+            segment=frame_segment,
+            frame_numbers=frame_numbers,
         )
-        for old_state, new_state in states:
-            old_pixel_states.append(old_state)
-            new_pixel_states.append(new_state)
         mouse_state = PixelCoord(x=self.xy[1], y=self.xy[0], frame=self.mov.currentFrameNumber-1)
 
         self.push(
             old_mouse_state=mouse_state, new_mouse_state=mouse_state,
-            old_pixels=old_pixel_states, new_pixels=new_pixel_states
+            old_pixels=old_pixel_states, new_pixels=new_pixel_states,
         )
 
 

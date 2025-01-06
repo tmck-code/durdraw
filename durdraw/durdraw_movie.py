@@ -211,12 +211,17 @@ class Movie():
         self.log = log.getLogger('movie')
         self.log.info('movie initialized', {'sizeX': self.sizeX, 'sizeY': self.sizeY})
 
+    def applyStates(self, states: List[PixelState]):
+        for state in states:
+            self.log.info('setting pixel in applyStates', {'pixel_state': state})
+            self.setChar(state.coord.frame, state.coord.x, state.coord.y, state.ch, state.fg, state.bg)
+
     def setChar(self, frame_n, x, y, c, fg, bg):
         self.log.debug('setChar', {'frame': frame_n, 'x': x, 'y': y, 'c': c, 'fg': fg, 'bg': bg})
         self.frames[frame_n].content[y][x] = c
         self.frames[frame_n].newColorMap[y][x] = [fg, bg]
 
-    def segment_pixel_states(self, start_x, start_y, segment, frame_numbers):
+    def _segment_pixel_states(self, start_x, start_y, segment, frame_numbers):
         for frame_n in frame_numbers:
             for y in range(start_y, start_y + segment.height):
                 for x in range(start_x, start_x + segment.width):
@@ -235,6 +240,10 @@ class Movie():
                         bg   = self.frames[frame_n].newColorMap[y][x][1],
                     )
                     yield old_state, new_state
+
+    def segment_pixel_states(self, start_x, start_y, segment, frame_numbers) -> [tuple, tuple]:
+        'Returns old pixel states and new pixel states, both as tuples of PixelState'
+        return zip(*self._segment_pixel_states(start_x, start_y, segment, frame_numbers))
 
     def addFrame(self, frame):
         """ takes a Frame object, adds it into the movie """
