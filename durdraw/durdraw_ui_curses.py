@@ -137,7 +137,8 @@ class UserInterface():  # Separate view (curses) from this controller
         self.xy = [0, 1]     # cursor position x/y - was "curs"
         self.playing = False
         #curses.raw()
-        curses.cbreak()
+        # TODO: restore this, probably with a check for ENV=test or similar
+        # curses.cbreak()
         curses.noecho()
         curses.nonl()
         self.stdscr.keypad(1)
