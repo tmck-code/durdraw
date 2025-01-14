@@ -5,7 +5,7 @@ from itertools import repeat
 import json
 import pdb
 import re
-from typing import List, Tuple, NamedTuple
+from typing import List, Tuple, NamedTuple, Iterable
 
 import durdraw.log as log
 from durdraw.durdraw_undo import UndoRegister
@@ -101,12 +101,8 @@ class Frame():
         return [[[fg,0] * self.sizeY] * self.sizeX]
 
 class PixelCoord(NamedTuple):
-    frame: int
-    x:     int
-    y:     int
-
-class FrameState(NamedTuple):
-    delay: int
+    x: int
+    y: int
 
 class MovieState(NamedTuple):
     sizeX: int
@@ -118,11 +114,22 @@ class PixelState(NamedTuple):
     fg:    int
     bg:    int
 
+class FramePixelCoord(NamedTuple):
+    frame: int
+    coord: PixelCoord
+
+class FramePixelStates(NamedTuple):
+    frame: int
+    coords: List[PixelState]
+
+class FrameState(NamedTuple):
+    delay: int
+
 class FileState(NamedTuple):
-    mouse:  PixelCoord = None
+    mouse:  FramePixelCoord = None
     movie:  MovieState = None
     frames: Tuple[FrameState] = tuple()
-    pixels: Tuple[PixelState] = tuple()
+    pixels: Tuple[FramePixelState] = tuple()
 
 class UndoStates(NamedTuple):
     previous: FileState
@@ -130,26 +137,45 @@ class UndoStates(NamedTuple):
 
 @dataclass
 class FrameSegment:
-    content:   list
-    color_map: list
-    height:    int = field(init=False)
-    width:     int = field(init=False)
+    content:     list
+    color_map:   list
+    frame_start: PixelCoord
+    frame_end:   PixelCoord
+    width:       int = field(init=False)
+    height:      int = field(init=False)
 
     def __post_init__(self):
         self.log = log.getLogger('frame_segment')
-        self.height = len(self.content)
-        self.width = len(self.content[0])
+        self.width = self.frame_end.x - self.frame_start.x + 1
+        self.height = self.frame_end.y - self.frame_start.y + 1
 
     @staticmethod
-    def from_frame(frame, start_x, start_y, end_x, end_y) -> FrameSegment:
+    def from_frame(frame: Frame, start: PixelCoord, end: PixelCoord) -> FrameSegment:
         'Extract a segment from the frame'
         return FrameSegment(
-            content   = [row[start_x:end_x+1] for row in frame.content[start_y:end_y+1]],
-            color_map = [row[start_x:end_x+1] for row in frame.newColorMap[start_y:end_y+1]],
+            content     = [row[start.x:end.x+1] for row in frame.content[start.y:end.y+1]],
+            color_map   = [row[start.x:end.x+1] for row in frame.newColorMap[start.y:end.y+1]],
+            frame_start = start,
+            frame_end   = end,
         )
 
+    def _pixel_coords(self) -> Iterable[PixelCoord]:
+        for y in range(self.start.y, self.end.y+1):
+            for x in range(self.start.x, self.end.x+1):
+                yield PixelCoord(x, y)
+
+    def _frame_coords(self, frame_number: int) -> Iterable[FramePixelCoord]:
+        for coord in self.pixel_coords():
+            yield FramePixelCoord(
+                frame = frame_number,
+                coord = PixelCoord(
+                    x = coord.x+self.frame_start.x,
+                    y = coord.y+self.frame_start.y
+                )
+            )
+
     @staticmethod
-    def _flip_matrix(matrix, width, height, horizontal=False, vertical=False):
+    def flip_matrix(self, matrix, width, height, horizontal=False, vertical=False):
         xrange, yrange, new_matrix = range(width), range(height), []
 
         for y, rev_y in zip(yrange, reversed(yrange)):
@@ -161,8 +187,8 @@ class FrameSegment:
     def flip(self, horizontal=False, vertical=False) -> FrameSegment:
         'Flip the contents horizontally and/or vertically'
         return FrameSegment(
-            content   = FrameSegment._flip_matrix(self.content, self.width, self.height, horizontal, vertical),
-            color_map = FrameSegment._flip_matrix(self.color_map, self.width, self.height, horizontal, vertical),
+            content   = FrameSegment.flip_matrix(self.content, self.width, self.height, horizontal, vertical),
+            color_map = FrameSegment.flip_matrix(self.color_map, self.width, self.height, horizontal, vertical),
         )
 
     def fill(self, char: str, fg: int, bg: int) -> FrameSegment:

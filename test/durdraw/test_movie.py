@@ -37,7 +37,8 @@ class TestSegment:
             ],
         )
         assert expected == segment
-         
+
+class TestFlipSegment:
 
     def test_flip_horizontal(self):
         'flip_horizontal flips the segment horizontally'
@@ -73,6 +74,7 @@ class TestSegment:
         )
         assert expected == flipped
 
+
     def test_flip_vertical(self):
         'flip_vertical flips the segment vertically'
         segment = movie.FrameSegment(
@@ -106,6 +108,7 @@ class TestSegment:
             ],
         )
         assert expected == flipped
+
 
     def test_flip_both(self):
         'flip_both flips the segment both horizontally and vertically'
@@ -141,6 +144,8 @@ class TestSegment:
             ],
         )
         assert expected == flipped
+
+class TestFillSegment:
 
     def test_fill(self):
         'fills the segment with a specific character and color'
