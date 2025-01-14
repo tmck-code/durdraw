@@ -386,9 +386,6 @@ class AppState():
 
     def loadHelpFile(self, helpFileName, page=1):
         helpFileName = os.path.expanduser(helpFileName)
-        print(f"Loading help file: {helpFileName}")
-        # TODO: restore this function, with a check for ENV=test or similar
-        return
         #self.helpMov = Movie(self.opts) # initialize a new movie to work with
         try:
             f = open(helpFileName, 'rb')

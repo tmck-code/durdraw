@@ -74,7 +74,7 @@ def main(fetch_args=None):
         app.blackbg = True
 
     # load configuration file
-    if not app.configFileLoaded and app.loadConfigFile():
+    if app.loadConfigFile():
         # Load main optiona
         if 'Main' in app.configFile:
             mainConfig = app.configFile['Main']
