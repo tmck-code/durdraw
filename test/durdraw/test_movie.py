@@ -20,21 +20,23 @@ class TestSegment:
         ]
 
         segment = movie.FrameSegment.from_frame(
-            frame, start_x=1, start_y=1, end_x=3, end_y=4,
+            frame,
+            start_x=1, start_y=1,
+            width=3, height=3,
         )
         expected = movie.FrameSegment(
             content=[
                 [' ', '*', ' '],
                 [' ', '*', ' '],
                 ['*', '*', ' '],
-                ['*', '*', ' '],
             ],
             color_map=[
                 [[0, 7], [0, 11], [0, 7]],
                 [[0, 7], [0, 11], [0, 7]],
                 [[1, 2], [0, 11], [0, 7]],
-                [[3, 4], [0, 11], [0, 7]],
             ],
+            frame_start=movie.PixelCoord(1, 1),
+            frame_end=movie.PixelCoord(3, 3),
         )
         assert expected == segment
 
@@ -47,32 +49,32 @@ class TestFlipSegment:
                 [' ', '*', ' '],
                 [' ', '*', ' '],
                 ['*', '*', ' '],
-                ['*', '*', ' '],
             ],
             color_map=[
                 [[0, 7], [0, 11], [0, 7]],
                 [[0, 7], [0, 11], [0, 7]],
                 [[1, 2], [0, 11], [0, 7]],
-                [[3, 4], [0, 11], [0, 7]],
-            ]
+            ],
+            frame_start=movie.PixelCoord(1, 1),
+            frame_end=movie.PixelCoord(3, 3),
         )
-        flipped = segment.flip(horizontal=True)
+        segment.flip(horizontal=True)
 
         expected = movie.FrameSegment(
             content=[
                 [' ', '*', ' '],
                 [' ', '*', ' '],
                 [' ', '*', '*'],
-                [' ', '*', '*'],
             ],
             color_map=[
                 [[0, 7], [0, 11], [0, 7]],
                 [[0, 7], [0, 11], [0, 7]],
                 [[0, 7], [0, 11], [1, 2]],
-                [[0, 7], [0, 11], [3, 4]],
             ],
+            frame_start=movie.PixelCoord(1, 1),
+            frame_end=movie.PixelCoord(3, 3),
         )
-        assert expected == flipped
+        assert expected== segment
 
 
     def test_flip_vertical(self):
@@ -90,8 +92,10 @@ class TestFlipSegment:
                 [[1, 2], [0, 11], [0, 7]],
                 [[3, 4], [0, 11], [0, 7]],
             ],
+            frame_start=movie.PixelCoord(1, 1),
+            frame_end=movie.PixelCoord(3, 4),
         )
-        flipped = segment.flip(vertical=True)
+        segment.flip(vertical=True)
 
         expected = movie.FrameSegment(
             content=[
@@ -106,8 +110,10 @@ class TestFlipSegment:
                 [[0, 7], [0, 11], [0, 7]],
                 [[0, 7], [0, 11], [0, 7]],
             ],
+            frame_start=movie.PixelCoord(1, 1),
+            frame_end=movie.PixelCoord(3, 4),
         )
-        assert expected == flipped
+        assert expected == segment
 
 
     def test_flip_both(self):
@@ -125,9 +131,11 @@ class TestFlipSegment:
                 [[0, 7], [0, 11], [0, 7]],
                 [[1, 2], [0, 11], [0, 7]],
                 [[3, 4], [0, 11], [0, 7]],
-            ]
+            ],
+            frame_start=movie.PixelCoord(1, 1),
+            frame_end=movie.PixelCoord(3, 4),
         )
-        flipped = segment.flip(horizontal=True, vertical=True)
+        segment.flip(horizontal=True, vertical=True)
 
         expected = movie.FrameSegment(
             content=[
@@ -142,8 +150,10 @@ class TestFlipSegment:
                 [[0, 7], [0, 11], [0, 7]],
                 [[0, 7], [0, 11], [0, 7]],
             ],
+            frame_start=movie.PixelCoord(1, 1),
+            frame_end=movie.PixelCoord(3, 4),
         )
-        assert expected == flipped
+        assert expected == segment
 
 class TestFillSegment:
 
@@ -161,9 +171,11 @@ class TestFillSegment:
                 [[0, 7], [0, 11], [0, 7]],
                 [[1, 2], [0, 11], [0, 7]],
                 [[3, 4], [0, 11], [0, 7]],
-            ]
+            ],
+            frame_start=movie.PixelCoord(1, 1),
+            frame_end=movie.PixelCoord(3, 4),
         )
-        filled = segment.fill(char='*', fg=0, bg=7)
+        segment.fill(char='*', fg=0, bg=7)
 
         expected = movie.FrameSegment(
             content=[
@@ -178,8 +190,10 @@ class TestFillSegment:
                 [[0, 7], [0, 7], [0, 7]],
                 [[0, 7], [0, 7], [0, 7]],
             ],
+            frame_start=movie.PixelCoord(1, 1),
+            frame_end=movie.PixelCoord(3, 4),
         )
-        assert expected == filled
+        assert expected == segment
 
     def test_fill_char(self):
         'fills the segment with a specific character'
@@ -195,9 +209,11 @@ class TestFillSegment:
                 [[0, 7], [0, 11], [0, 7]],
                 [[1, 2], [0, 11], [0, 7]],
                 [[3, 4], [0, 11], [0, 7]],
-            ]
+            ],
+            frame_start=movie.PixelCoord(1, 1),
+            frame_end=movie.PixelCoord(3, 4),
         )
-        filled = segment.fillChar(char='*')
+        segment.fillChar(char='*')
         expected = movie.FrameSegment(
             content=[
                 ['*', '*', '*'],
@@ -206,8 +222,10 @@ class TestFillSegment:
                 ['*', '*', '*'],
             ],
             color_map=segment.color_map,
+            frame_start=movie.PixelCoord(1, 1),
+            frame_end=movie.PixelCoord(3, 4),
         )
-        assert expected == filled
+        assert expected == segment
 
     def test_fill_color(self):
         'fills the segment with a specific color'
@@ -223,9 +241,11 @@ class TestFillSegment:
                 [[0, 7], [0, 11], [0, 7]],
                 [[1, 2], [0, 11], [0, 7]],
                 [[3, 4], [0, 11], [0, 7]],
-            ]
+            ],
+            frame_start=movie.PixelCoord(1, 1),
+            frame_end=movie.PixelCoord(3, 4),
         )
-        filled = segment.fillColor(fg=11, bg=12)
+        segment.fillColor(fg=11, bg=12)
         expected = movie.FrameSegment(
             content=segment.content,
             color_map=[
@@ -234,5 +254,7 @@ class TestFillSegment:
                 [[11, 12], [11, 12], [11, 12]],
                 [[11, 12], [11, 12], [11, 12]],
             ],
+            frame_start=movie.PixelCoord(1, 1),
+            frame_end=movie.PixelCoord(3, 4),
         )
-        assert expected == filled
+        assert expected == segment

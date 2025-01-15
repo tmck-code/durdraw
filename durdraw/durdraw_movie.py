@@ -114,26 +114,18 @@ class PixelState(NamedTuple):
     fg:    int
     bg:    int
 
-class FramePixelCoord(NamedTuple):
-    frame: int
-    coord: PixelCoord
-
-class FramePixelStates(NamedTuple):
-    frame: int
-    coords: List[PixelState]
-
 class FrameState(NamedTuple):
-    delay: int
+    delay:  int
+    pixels: Tuple[PixelState] = tuple()
 
 class FileState(NamedTuple):
     mouse:  FramePixelCoord = None
     movie:  MovieState = None
     frames: Tuple[FrameState] = tuple()
-    pixels: Tuple[FramePixelState] = tuple()
 
 class UndoStates(NamedTuple):
     previous: FileState
-    current: FileState
+    current:  FileState
 
 @dataclass
 class FrameSegment:
@@ -150,8 +142,10 @@ class FrameSegment:
         self.height = self.frame_end.y - self.frame_start.y + 1
 
     @staticmethod
-    def from_frame(frame: Frame, start: PixelCoord, end: PixelCoord) -> FrameSegment:
+    def from_frame(frame: Frame, start_x: int, start_y: int, width: int, height: int) -> FrameSegment:
         'Extract a segment from the frame'
+        start = PixelCoord(x=start_x, y=start_y)
+        end = PixelCoord(x=start_x+width-1, y=start_y+height-1)
         return FrameSegment(
             content     = [row[start.x:end.x+1] for row in frame.content[start.y:end.y+1]],
             color_map   = [row[start.x:end.x+1] for row in frame.newColorMap[start.y:end.y+1]],
@@ -164,18 +158,8 @@ class FrameSegment:
             for x in range(self.start.x, self.end.x+1):
                 yield PixelCoord(x, y)
 
-    def _frame_coords(self, frame_number: int) -> Iterable[FramePixelCoord]:
-        for coord in self.pixel_coords():
-            yield FramePixelCoord(
-                frame = frame_number,
-                coord = PixelCoord(
-                    x = coord.x+self.frame_start.x,
-                    y = coord.y+self.frame_start.y
-                )
-            )
-
     @staticmethod
-    def flip_matrix(self, matrix, width, height, horizontal=False, vertical=False):
+    def flip_matrix(matrix, width, height, horizontal=False, vertical=False):
         xrange, yrange, new_matrix = range(width), range(height), []
 
         for y, rev_y in zip(yrange, reversed(yrange)):
@@ -186,37 +170,36 @@ class FrameSegment:
 
     def flip(self, horizontal=False, vertical=False) -> FrameSegment:
         'Flip the contents horizontally and/or vertically'
-        return FrameSegment(
-            content   = FrameSegment.flip_matrix(self.content, self.width, self.height, horizontal, vertical),
-            color_map = FrameSegment.flip_matrix(self.color_map, self.width, self.height, horizontal, vertical),
+        self.content = FrameSegment.flip_matrix(
+            self.content,
+            self.width, self.height,
+            horizontal, vertical
+        )
+        self.color_map = FrameSegment.flip_matrix(
+            self.color_map,
+            self.width, self.height,
+            horizontal, vertical
         )
 
     def fill(self, char: str, fg: int, bg: int) -> FrameSegment:
         'Fill the contents with a character and color'
-        return FrameSegment(
-            content   = [[char] * self.width] * self.height,
-            color_map = list(repeat(
-                list(repeat([fg, bg], self.width)),
-                self.height
-            ))
-        )
+
+        self.content   = [[char] * self.width] * self.height
+        self.color_map = list(repeat(
+            list(repeat([fg, bg], self.width)),
+            self.height
+        ))
 
     def fillColor(self, fg: int, bg: int) -> FrameSegment:
         'Fill the contents with a color'
-        return FrameSegment(
-            content   = self.content,
-            color_map = list(repeat(
-                list(repeat([fg, bg], self.width)),
-                self.height
-            ))
-        )
+        self.color_map = list(repeat(
+            list(repeat([fg, bg], self.width)),
+            self.height
+        ))
 
     def fillChar(self, char: str) -> FrameSegment:
         'Fill the contents with a character'
-        return FrameSegment(
-            content   = [[char] * self.width] * self.height,
-            color_map = self.color_map
-        )
+        self.content = [[char] * self.width] * self.height
 
 class Movie():
     """ Contains an array of Frames, options to add, remove, copy them """
