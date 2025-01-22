@@ -101,6 +101,23 @@ to recognise when state has changed and correspondingly update the undo state.
 and the main undo list could just consist of references to the individual pixel & index of the change inside that pixel. I'm unsure how this would interact with things like the existing colour map #TODO investigate.~~   
 *^ I am now thinking that, at this stage, this change to Frames/pixels is not neccessary to be able to implement the new undo system, and it risks changing too much at once (e.g. the underlying way that chars and colours are set in durdraw via the content and colour map)*
 
+### WIP
+
+
+1. validate frange
+2. get all pixel states from self.mov
+ i. pass coords amd frange to 
+    s = self.mov.getStates(x1, y1, x2, y2, frange)
+ 1.  add mouse state to states
+ 2. fill/flip the states with
+      s.fill(char, fg, bg)
+      s.flip(horizontal, vertical)
+3. pass states to self.applyState(push=True)
+ 1. this applies the states by calling
+    self.mov.applyStates(states)
+ 2. then pushes the states to the undo stack
+
+
 ![image](https://github.com/user-attachments/assets/eea5445d-292f-42c5-9327-85da1e0560c1)
 
 [diagram](https://link.excalidraw.com/readonly/svgZcqp0b4R5EClbbkdh)
