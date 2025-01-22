@@ -183,12 +183,8 @@ class FrameSegment:
 
     def fill(self, char: str, fg: int, bg: int) -> FrameSegment:
         'Fill the contents with a character and color'
-
-        self.content   = [[char] * self.width] * self.height
-        self.color_map = list(repeat(
-            list(repeat([fg, bg], self.width)),
-            self.height
-        ))
+        self.fillChar(char)
+        self.fillColor(fg, bg)
 
     def fillColor(self, fg: int, bg: int) -> FrameSegment:
         'Fill the contents with a color'
