@@ -104,6 +104,10 @@ class PixelCoord(NamedTuple):
     x: int
     y: int
 
+class MouseCoord(NamedTuple):
+    pixel: PixelCoord
+    frame: int
+
 class MovieState(NamedTuple):
     sizeX: int
     sizeY: int
@@ -116,6 +120,7 @@ class PixelState(NamedTuple):
 
 class FrameState(NamedTuple):
     delay:  int
+    frame_n: int
     pixels: Tuple[PixelState] = tuple()
 
 class FileState(NamedTuple):
@@ -142,10 +147,10 @@ class FrameSegment:
         self.height = self.frame_end.y - self.frame_start.y + 1
 
     @staticmethod
-    def from_frame(frame: Frame, start_x: int, start_y: int, width: int, height: int) -> FrameSegment:
+    def from_frame(frame: Frame, start_x: int, start_y: int, end_x: int, end_y: int) -> FrameSegment:
         'Extract a segment from the frame'
         start = PixelCoord(x=start_x, y=start_y)
-        end = PixelCoord(x=start_x+width-1, y=start_y+height-1)
+        end = PixelCoord(x=end_x, y=end_y)
         return FrameSegment(
             content     = [row[start.x:end.x+1] for row in frame.content[start.y:end.y+1]],
             color_map   = [row[start.x:end.x+1] for row in frame.newColorMap[start.y:end.y+1]],
@@ -216,39 +221,70 @@ class Movie():
         self.log = log.getLogger('movie')
         self.log.info('movie initialized', {'sizeX': self.sizeX, 'sizeY': self.sizeY})
 
-    def applyStates(self, states: List[PixelState]):
-        for state in states:
-            self.log.info('setting pixel in applyStates', {'pixel_state': state})
-            self.setChar(state.coord.frame, state.coord.x, state.coord.y, state.ch, state.fg, state.bg)
+    def applyFrameState(self, state: FrameState):
+        for pixel_state in state.pixels:
+            self.setChar(
+                frame_n = state.frame_n,
+                x       = pixel_state.coord.x,
+                y       = pixel_state.coord.y,
+                c       = pixel_state.ch,
+                fg      = pixel_state.fg,
+                bg      = pixel_state.bg
+            )
+        if state.delay:
+            self.frames[state.frame_n].delay = state.delay
+
+    def applyStates(self, state: FileState):
+        for frame_state in state.frames:
+            self.applyFrameState(frame_state)
 
     def setChar(self, frame_n, x, y, c, fg, bg):
         self.log.debug('setChar', {'frame': frame_n, 'x': x, 'y': y, 'c': c, 'fg': fg, 'bg': bg})
         self.frames[frame_n].content[y][x] = c
         self.frames[frame_n].newColorMap[y][x] = [fg, bg]
 
-    def _segment_pixel_states(self, start_x, start_y, segment, frame_numbers):
-        for frame_n in frame_numbers:
-            for y in range(start_y, start_y + segment.height):
-                for x in range(start_x, start_x + segment.width):
-                    coord = PixelCoord(frame=frame_n, x=x, y=y)
-                    self.log.debug('segment_pixel_states', {'coord': coord})
-                    new_state = PixelState(
-                        coord = coord,
-                        ch    = segment.content[y-start_y][x-start_x],
-                        fg    = segment.color_map[y-start_y][x-start_x][0],
-                        bg    = segment.color_map[y-start_y][x-start_x][1],
-                    )
-                    old_state = PixelState(
-                        coord = coord,
-                        ch   = self.frames[frame_n].content[y][x],
-                        fg   = self.frames[frame_n].newColorMap[y][x][0],
-                        bg   = self.frames[frame_n].newColorMap[y][x][1],
-                    )
-                    yield old_state, new_state
+    def _segment_pixel_states(self, start_x, start_y, segment, frame_n):
+        for y in range(start_y, start_y + segment.height):
+            for x in range(start_x, start_x + segment.width):
+                coord = PixelCoord(x=x, y=y)
+                # self.log.debug('segment_pixel_states', {'coord': coord})
+                new_state = PixelState(
+                    coord = coord,
+                    ch    = segment.content[y-start_y][x-start_x],
+                    fg    = segment.color_map[y-start_y][x-start_x][0],
+                    bg    = segment.color_map[y-start_y][x-start_x][1],
+                )
+                old_state = PixelState(
+                    coord = coord,
+                    ch   = self.frames[frame_n].content[y][x],
+                    fg   = self.frames[frame_n].newColorMap[y][x][0],
+                    bg   = self.frames[frame_n].newColorMap[y][x][1],
+                )
+                yield old_state, new_state
 
-    def segment_pixel_states(self, start_x, start_y, segment, frame_numbers) -> [tuple, tuple]:
+    def _segment_frame_states(self, start_x, start_y, segment, frame_numbers, delay=None) -> [tuple, tuple]:
         'Returns old pixel states and new pixel states, both as tuples of PixelState'
-        return zip(*self._segment_pixel_states(start_x, start_y, segment, frame_numbers))
+        for frame_n in frame_numbers:
+            old_pixels, new_pixels = zip(
+                *self._segment_pixel_states(
+                    start_x, start_y,
+                    segment, frame_n
+                )
+            )
+            old_state = FrameState(
+                delay  = self.frames[frame_n].delay,
+                pixels = old_pixels,
+                frame_n = frame_n,
+            )
+            new_state = FrameState(
+                delay  = delay if delay else self.frames[frame_n].delay,
+                pixels = new_pixels,
+                frame_n = frame_n,
+            )
+            yield old_state, new_state
+
+    def frame_states(self, start_x, start_y, segment, frame_numbers, delay=None) -> [Iterable[FrameState], Iterable[FrameState]]:
+        return zip(*self._segment_frame_states(start_x, start_y, segment, frame_numbers, delay))
 
     def addFrame(self, frame):
         """ takes a Frame object, adds it into the movie """
@@ -331,7 +367,7 @@ class Movie():
 
     def shrinkCanvasWidth(self, shrinkage):
         self.sizeY = self.sizeY - shrinkage
-        self.opts.sizeY = self.opts.sizeY - shrinkage 
+        self.opts.sizeY = self.opts.sizeY - shrinkage
         #self.width = self.width - shrinkage
 
     def search_and_replace_color_pair(self, old_color, new_color, frange=None):

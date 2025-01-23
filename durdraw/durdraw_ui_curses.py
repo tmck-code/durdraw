@@ -33,7 +33,7 @@ import durdraw.durdraw_file as durfile
 from durdraw.durdraw_ui_widgets import StatusBar
 import durdraw.durdraw_gui_manager as durgui
 import durdraw.durdraw_movie as durmovie
-from durdraw.durdraw_movie import UndoStates, FileState, PixelState, PixelCoord
+from durdraw.durdraw_movie import UndoStates, FileState, PixelState, PixelCoord, MouseCoord
 
 import durdraw.neofetcher as neofetcher
 import durdraw.durdraw_color_curses as dur_ansilib
@@ -674,40 +674,47 @@ class UserInterface():  # Separate view (curses) from this controller
         except curses.error:
             pass    # .. if terminal supports it.
 
-    def push(self, old_mouse_state, new_mouse_state, old_pixels, new_pixels):
+    def push(self, old_mouse_state, new_mouse_state, old_state, new_state):
+        new_file_state = FileState(
+            mouse  = new_mouse_state,
+            frames = new_state,
+        )
         self.mov.undo_register.push(
             UndoStates(
-                previous=FileState(mouse=old_mouse_state, pixels=old_pixels),
-                current=FileState(mouse=new_mouse_state, pixels=new_pixels),
+                previous=FileState(
+                    mouse  = old_mouse_state,
+                    frames = old_state,
+                ),
+                current=new_file_state,
             )
         )
-        self.mov.applyStates(new_pixels)
+        self.mov.applyStates(new_file_state)
 
     def undo2(self):
         if not self.mov.undo_register.can_undo:
             self.log.debug('undo', {'msg': 'nothing to undo'})
             return
         undo_states = self.mov.undo_register.undo()
-        self.mov.applyStates(undo_states.previous.pixels)
+        self.mov.applyStates(undo_states.previous)
 
         if undo_states.previous.mouse is not None:
             self.log.info('moving cursor in undo', {'mouse': undo_states.previous.mouse})
             if undo_states.previous.mouse.frame != self.mov.currentFrameNumber-1:
                 self.mov.gotoFrame(undo_states.previous.mouse.frame+1)
-            self.xy = [undo_states.previous.mouse.y, undo_states.previous.mouse.x]
+            self.xy = [undo_states.previous.mouse.pixel.y, undo_states.previous.mouse.pixel.x]
 
     def redo(self):
         if not self.mov.undo_register.can_redo:
             self.log.debug('redo', {'msg': 'nothing to redo'})
             return
         undo_states = self.mov.undo_register.redo()
-        self.mov.applyStates(undo_states.current.pixels)
+        self.mov.applyStates(undo_states.current)
 
         if undo_states.current.mouse is not None:
             self.log.info('moving cursor in redo', {'mouse': undo_states.current.mouse})
             if undo_states.current.mouse.frame != self.mov.currentFrameNumber-1:
                 self.mov.gotoFrame(undo_states.current.mouse.frame+1)
-            self.xy = [undo_states.current.mouse.y, undo_states.current.mouse.x]
+            self.xy = [undo_states.current.mouse.pixel.y, undo_states.current.mouse.pixel.x]
 
     def addstr(self, y, x, string, attr=None): # addstr(y, x, str[, attr]) and addstr(str[, attr])
         """ Wraps ncurses addstr in a try;except, prevents addstr from
@@ -7031,15 +7038,16 @@ Can use ESC or META instead of ALT
 
     def flipSegment(self, startPoint, height, width, horizontal=False, vertical=False):
         """ Flip the contents horizontally and/or vertically in the current frame, or framge range """
-        flipped = FrameSegment.from_frame(
+        segment = FrameSegment.from_frame(
             self.mov.currentFrame,
             start_x=startPoint[1], start_y=startPoint[0],
             end_x=startPoint[1] + width, end_y=startPoint[0] + height,
-        ).flip(
+        )
+        segment.flip(
             horizontal=horizontal, vertical=vertical
         )
-        self.log.debug('flipped segment', {'flipped': flipped, 'startPoint': startPoint, 'height': height, 'width': width})
-        self.applySegmentChange(flipped, startPoint[1], startPoint[0], [self.mov.currentFrameNumber-1])
+        self.log.debug('flipped segment', {'flipped': segment, 'startPoint': startPoint, 'height': height, 'width': width})
+        self.applySegmentChange(segment, startPoint[1], startPoint[0], [self.mov.currentFrameNumber-1])
 
     def deleteSegment(self, startPoint, height, width, frange=None):
         """ Delete everyting in the current frame, or framge range """
@@ -7052,6 +7060,7 @@ Can use ESC or META instead of ALT
 
     def fillSegment(self, startPoint, height, width, frange=None, fillFg=None, fillBg=None, fillChar="X"):
         """ Fill everyting in the current frame, or framge range, with selected character+color """
+
         if frange is None:
             frange = [self.mov.currentFrameNumber-1, self.mov.currentFrameNumber]
 
@@ -7066,16 +7075,23 @@ Can use ESC or META instead of ALT
         self.applySegmentChange(filled, startPoint[1], startPoint[0], frange)
 
     def applySegmentChange(self, frame_segment, start_x, start_y, frame_numbers):
-        old_pixel_states, new_pixel_states = self.mov.segment_pixel_states(
-            start_x=start_x, start_y=start_y,
-            segment=frame_segment,
-            frame_numbers=frame_numbers,
+        old_state, new_state = self.mov.frame_states(
+            start_x       = start_x,
+            start_y       = start_y,
+            segment       = frame_segment,
+            frame_numbers = frame_numbers,
         )
-        mouse_state = PixelCoord(x=self.xy[1], y=self.xy[0], frame=self.mov.currentFrameNumber-1)
+        self.log.info('segment_pixel_states', {'old': old_state, 'new': new_state})
+        mouse_state = MouseCoord(
+            pixel = PixelCoord(x=self.xy[1], y=self.xy[0]),
+            frame = self.mov.currentFrameNumber-1
+        )
 
         self.push(
-            old_mouse_state=mouse_state, new_mouse_state=mouse_state,
-            old_pixels=old_pixel_states, new_pixels=new_pixel_states,
+            old_mouse_state = mouse_state,
+            new_mouse_state = mouse_state,
+            old_state       = old_state,
+            new_state       = new_state,
         )
 
 
