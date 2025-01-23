@@ -33,7 +33,7 @@ import durdraw.durdraw_file as durfile
 from durdraw.durdraw_ui_widgets import StatusBar
 import durdraw.durdraw_gui_manager as durgui
 import durdraw.durdraw_movie as durmovie
-from durdraw.durdraw_movie import UndoStates, FileState, PixelState, PixelCoord, MouseCoord
+from durdraw.durdraw_movie import UndoStates, FileState, PixelState, PixelCoord, MouseCoord, FrameState
 
 import durdraw.neofetcher as neofetcher
 import durdraw.durdraw_color_curses as dur_ansilib
@@ -876,26 +876,39 @@ class UserInterface():  # Separate view (curses) from this controller
         if frange is None:
             frange = [self.mov.currentFrameNumber, self.mov.currentFrameNumber]
 
-        pixel_states = []
+        frame_states = []
         for fn in range(frange[0]-1, frange[1]):
-            pixel_states.append(
-                PixelState(
-                    coord=PixelCoord(frame=fn, x=x-1, y=y),
-                    ch=chr(c),
-                    fg=self.mov.frames[fn].newColorMap[y][x-1][0],
-                    bg=self.mov.frames[fn].newColorMap[y][x-1][1],
-                )
+            frame_states.append(
+                FrameState(delay=self.mov.frames[fn].delay, frame_n=fn, pixels=[
+                    PixelState(
+                        coord = PixelCoord(x=x-1, y=y),
+                        ch    = chr(c),
+                        fg    = self.mov.frames[fn].newColorMap[y][x-1][0],
+                        bg    = self.mov.frames[fn].newColorMap[y][x-1][1],
+                    )
+                ])
             )
 
         mouse_state = None
         if x < self.mov.sizeX and moveCursor:
-            mouse_state = PixelCoord(x=self.xy[1], y=self.xy[0], frame=self.mov.currentFrameNumber-1)
+            mouse_state = MouseCoord(
+                pixel=PixelCoord(x=self.xy[1], y=self.xy[0]), frame=self.mov.currentFrameNumber-1
+            )
 
         self.push(
-            old_mouse_state=PixelCoord(x=self.xy[1], y=self.xy[0], frame=self.mov.currentFrameNumber-1),
+            old_mouse_state=MouseCoord(PixelCoord(x=self.xy[1], y=self.xy[0]), frame=self.mov.currentFrameNumber-1),
             new_mouse_state=mouse_state,
-            old_pixels=[PixelState(coord=PixelCoord(frame=self.mov.currentFrameNumber-1, x=x-1, y=y), ch=self.mov.currentFrame.content[y][x-1], fg=self.mov.currentFrame.newColorMap[y][x-1][0], bg=self.mov.currentFrame.newColorMap[y][x-1][1])],
-            new_pixels=pixel_states,
+            old_state=[
+                FrameState(delay=self.mov.currentFrame.delay, frame_n=self.mov.currentFrameNumber-1, pixels=[
+                    PixelState(
+                        coord = PixelCoord(x=x-1, y=y),
+                        ch    = self.mov.currentFrame.content[y][x-1],
+                        fg    = self.mov.currentFrame.newColorMap[y][x-1][0],
+                        bg    = self.mov.currentFrame.newColorMap[y][x-1][1]
+                    )
+                ])
+            ],
+            new_state=frame_states,
         )
         if mouse_state is not None:
             self.move_cursor_right()
@@ -7069,16 +7082,23 @@ Can use ESC or META instead of ALT
 
         if frange is None:
             frange = [self.mov.currentFrameNumber-1, self.mov.currentFrameNumber]
+        else:
+            frange = [frange[0]-1, frange[1]-1]
+        self.log.debug('filling segment', {
+            'startPoint': startPoint, 'height': height, 'width': width,
+            'frange': frange, 'currentFrame': self.mov.currentFrameNumber, 'n_frames': len(self.mov.frames)
+        })
 
-        filled = FrameSegment.from_frame(
+        segment = FrameSegment.from_frame(
             self.mov.currentFrame,
             start_x=startPoint[1], start_y=startPoint[0],
             end_x=startPoint[1] + width, end_y=startPoint[0] + height,
-        ).fill(
+        )
+        segment.fill(
             char=fillChar, fg=fillFg or self.appState.defaultFgColor, bg=fillBg or self.appState.defaultBgColor,
         )
-        self.log.debug('filled segment', {'filled': filled, 'startPoint': startPoint, 'height': height, 'width': width})
-        self.applySegmentChange(filled, startPoint[1], startPoint[0], frange)
+        self.log.debug('filled segment', {'segment': segment, 'startPoint': startPoint, 'height': height, 'width': width})
+        self.applySegmentChange(segment, startPoint[1], startPoint[0], frange)
 
     def applySegmentChange(self, frame_segment, start_x, start_y, frame_numbers):
         old_state, new_state = self.mov.frame_states(
