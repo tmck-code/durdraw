@@ -251,6 +251,7 @@ class Movie():
     @line_profiler.profile
     def applyStates(self, state: FileState):
         for frame_state in state.frames:
+            self.log.debug('applying frame state', {'frame': frame_state.frame_n})
             self.applyFrameState(frame_state)
 
     @line_profiler.profile
@@ -261,10 +262,22 @@ class Movie():
 
     @line_profiler.profile
     def _segment_pixel_states(self, start_x, start_y, segment, frame_n):
+        self.log.debug('getting pixel states', {'start_x': start_x, 'start_y': start_y, 'frame_n': frame_n})
         for y in range(start_y, start_y + segment.height):
             for x in range(start_x, start_x + segment.width):
                 coord = PixelCoord(x=x, y=y)
-                # self.log.debug('segment_pixel_states', {'coord': coord})
+                self.log.debug(
+                    'getting pixel state',
+                    {
+                        'coord': coord,
+                        'adjusted': {'x': x-start_x, 'y': y-start_y},
+                        'sizes': {
+                            'width': segment.width,
+                            'height': segment.height,
+                            'content': {'width': len(self.frames[frame_n].content[0]), 'height': len(self.frames[frame_n].content)}
+                        }
+                    }
+                )
                 new_state = PixelState(
                     coord = coord,
                     ch    = segment.content[y-start_y][x-start_x],
@@ -282,7 +295,8 @@ class Movie():
     @line_profiler.profile
     def _segment_frame_states(self, start_x, start_y, segment, frame_numbers, delay=None) -> [tuple, tuple]:
         'Returns old pixel states and new pixel states, both as tuples of PixelState'
-        for frame_n in frame_numbers:
+        self.log.debug('getting frame states', {'start_x': start_x, 'start_y': start_y, 'frame_numbers': frame_numbers})
+        for frame_n in range(frame_numbers[0], frame_numbers[1]+1):
             old_pixels, new_pixels = zip(
                 *self._segment_pixel_states(
                     start_x, start_y,
