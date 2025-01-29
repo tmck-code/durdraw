@@ -21,6 +21,9 @@ import threading
 import time
 import urllib
 
+
+import line_profiler
+
 from concurrent.futures import ThreadPoolExecutor
 
 #from durdraw.durdraw_appstate import AppState
@@ -674,6 +677,7 @@ class UserInterface():  # Separate view (curses) from this controller
         except curses.error:
             pass    # .. if terminal supports it.
 
+    @line_profiler.profile
     def push(self, old_mouse_state, new_mouse_state, old_state, new_state):
         new_file_state = FileState(
             mouse  = new_mouse_state,
@@ -690,6 +694,7 @@ class UserInterface():  # Separate view (curses) from this controller
         )
         self.mov.applyStates(new_file_state)
 
+    @line_profiler.profile
     def undo2(self):
         if not self.mov.undo_register.can_undo:
             self.log.debug('undo', {'msg': 'nothing to undo'})
@@ -703,6 +708,7 @@ class UserInterface():  # Separate view (curses) from this controller
                 self.mov.gotoFrame(undo_states.previous.mouse.frame+1)
             self.xy = [undo_states.previous.mouse.pixel.y, undo_states.previous.mouse.pixel.x]
 
+    @line_profiler.profile
     def redo(self):
         if not self.mov.undo_register.can_redo:
             self.log.debug('redo', {'msg': 'nothing to redo'})
@@ -716,6 +722,7 @@ class UserInterface():  # Separate view (curses) from this controller
                 self.mov.gotoFrame(undo_states.current.mouse.frame+1)
             self.xy = [undo_states.current.mouse.pixel.y, undo_states.current.mouse.pixel.x]
 
+    @line_profiler.profile
     def addstr(self, y, x, string, attr=None): # addstr(y, x, str[, attr]) and addstr(str[, attr])
         """ Wraps ncurses addstr in a try;except, prevents addstr from
             crashing cureses if it fails """
@@ -6372,6 +6379,7 @@ Can use ESC or META instead of ALT
         if refreshScreen:
             self.stdscr.refresh()
 
+    @line_profiler.profile
     def refresh(self, refreshScreen=True, mov=None, col_offset = 0, line_offset = 0, preview=False, topLine=None):          # rename to redraw()?
         """Refresh the screen"""
         if topLine == None:
@@ -6646,12 +6654,14 @@ Can use ESC or META instead of ALT
             self.mov.currentFrame.newColorMap.pop()
         self.refresh()
 
+    @line_profiler.profile
     def startSelecting(self, firstkey=None, mouse=False):   # firstkey is the key the user was
         #pressing. left, right, etc
         """Mark selection for copy/cut/move - trigger with shift-arrow-keys"""
         # any other key returns (cancels)
         # print message: "Select mode - Enter to select, Esc to cancel"
-        self.undo.push()
+        # self.undo.push()
+        self.log.debug('startSelecting')
         startPoint =  [self.xy[0],  self.xy[1]]   # set to wherever the cursor is
         endPoint = startPoint
         selecting = True
@@ -6660,9 +6670,11 @@ Can use ESC or META instead of ALT
         self.clearStatusBar()
         #self.addstr(self.statusBarLineNum, 0, f"Use arrow keys to make selection, enter when done.")
         while selecting:
+            self.log.debug('selecting')
             endPoint =  [self.xy[0],  self.xy[1]]   # set to wherever the cursor is
             self.refresh()
             self.addstr(self.statusBarLineNum + 1, 0, f"Use arrow keys to make selection, enter when done.")
+            self.log.debug('selecting', {'startPoint': startPoint, 'endPoint': endPoint})
             # draw block area on top of drawing area
             mov = self.mov
             if endPoint[0] >= startPoint[0]:    # if we're moving right of start point
@@ -6699,6 +6711,7 @@ Can use ESC or META instead of ALT
             # end draw block area
             #self.stdscr.redrawwin()
             c = self.stdscr.getch()
+            self.log.debug('selecting', {'c': c})
             if c in [98, curses.KEY_LEFT, curses.KEY_SLEFT]:
                 self.move_cursor_left()
             elif c in [98, curses.KEY_RIGHT, curses.KEY_SRIGHT]:
@@ -6882,6 +6895,7 @@ Can use ESC or META instead of ALT
                         # Confirm. Don't pop the clipboard like esc does.
                         prompting = False
                 selecting = False
+                self.log.debug('finished selecting')
             elif c == curses.KEY_MOUSE: 
                 try:
                     _, mouseX, mouseY, _, mouseState = curses.getmouse()
@@ -6924,6 +6938,7 @@ Can use ESC or META instead of ALT
             self.stdscr.nodelay(1)
         else:
             self.stdscr.nodelay(0)
+        self.log.debug('end of startSelecting')
 
     def askHowToPaste(self):
         self.clearStatusBar()
@@ -7002,22 +7017,27 @@ Can use ESC or META instead of ALT
         #                 else:
         #                     self.insertChar(character, fg=charFg, bg=charBg, x=charColumn, y=charLine, pushUndo=False, frange=frange)
 
+
+    @line_profiler.profile
     def copySegmentToClipboard(self, startPoint, height, width):
         """ startPoint is [line, column] """
         clipBoard = self.copySegmentToBuffer(startPoint, height, width)
         self.clipBoard = clipBoard
 
+    @line_profiler.profile
     def copySegmentToBrush(self, startPoint, height, width):
         """ startPoint is [line, column] """
         newBrush = self.copySegmentToBuffer(startPoint, height, width)
         self.appState.brush = newBrush
 
+    @line_profiler.profile
     def copySegmentToAllFrames(self, startPoint, height, width, frange=None):
         self.undo.push()
         tempFrame = self.copySegmentToBuffer(startPoint, height, width)
         # paste into each frame in range, at startPoint
         self.pasteFromClipboard(clipBuffer=tempFrame, startPoint=startPoint, frange=frange)
 
+    @line_profiler.profile
     def copySegmentToBuffer(self, startPoint, height, width):
         # Return a buffer, aka a frame or movie object
         # Buffer can be put into clipboard, or used to move
@@ -7057,6 +7077,7 @@ Can use ESC or META instead of ALT
             newColNum = 0
         return bufferFrame
 
+    @line_profiler.profile
     def flipSegment(self, startPoint, height, width, horizontal=False, vertical=False):
         """ Flip the contents horizontally and/or vertically in the current frame, or framge range """
         segment = FrameSegment.from_frame(
@@ -7067,11 +7088,17 @@ Can use ESC or META instead of ALT
         segment.flip(
             horizontal=horizontal, vertical=vertical
         )
-        self.log.debug('flipped segment', {'flipped': segment, 'startPoint': startPoint, 'height': height, 'width': width})
+        self.log.debug('flipped segment', {'startPoint': startPoint, 'height': height, 'width': width})
         self.applySegmentChange(segment, startPoint[1], startPoint[0], [self.mov.currentFrameNumber-1])
 
+    @line_profiler.profile
     def deleteSegment(self, startPoint, height, width, frange=None):
         """ Delete everyting in the current frame, or framge range """
+
+        self.log.debug('deleting segment', {
+            'startPoint': startPoint, 'height': height, 'width': width,
+            'frange': frange, 'currentFrame': self.mov.currentFrameNumber, 'n_frames': len(self.mov.frames)
+        })
         self.fillSegment(
             startPoint, height, width, frange=frange,
             fillFg   = self.appState.defaultFgColor,
@@ -7079,6 +7106,7 @@ Can use ESC or META instead of ALT
             fillChar = ' ',
         )
 
+    @line_profiler.profile
     def fillSegment(self, startPoint, height, width, frange=None, fillFg=None, fillBg=None, fillChar="X"):
         """ Fill everyting in the current frame, or framge range, with selected character+color """
 
@@ -7102,6 +7130,7 @@ Can use ESC or META instead of ALT
         self.log.debug('filled segment', {'segment': segment, 'startPoint': startPoint, 'height': height, 'width': width})
         self.applySegmentChange(segment, startPoint[1], startPoint[0], frange)
 
+    @line_profiler.profile
     def applySegmentChange(self, frame_segment, start_x, start_y, frame_numbers):
         old_state, new_state = self.mov.frame_states(
             start_x       = start_x,
@@ -7109,7 +7138,7 @@ Can use ESC or META instead of ALT
             segment       = frame_segment,
             frame_numbers = frame_numbers,
         )
-        self.log.info('segment_pixel_states', {'old': old_state, 'new': new_state})
+        # self.log.info('segment_pixel_states', {'old': old_state, 'new': new_state})
         mouse_state = MouseCoord(
             pixel = PixelCoord(x=self.xy[1], y=self.xy[0]),
             frame = self.mov.currentFrameNumber-1
@@ -7144,6 +7173,7 @@ Can use ESC or META instead of ALT
         self.addstr(self.statusBarLineNum + 1, 0, " " * self.mov.sizeX) # clear upper status bar
 
    
+    @line_profiler.profile
     def clearStatusBar(self):
         self.addstr(self.statusBarLineNum, 0, " " * self.mov.sizeX) # clear lower status bar
         self.addstr(self.statusBarLineNum + 1, 0, " " * self.mov.sizeX) # clear upper status bar

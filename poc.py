@@ -13,6 +13,7 @@ from pp import log
 LOG = log.getLogger('poc', filename='poc.log', level='INFO')
 
 class UndoRegister:
+    @line_profiler.profile
     def __init__(self, initial_state=None):
         self.undo_buf, self.redo_buf = deque(), deque()
         if initial_state:

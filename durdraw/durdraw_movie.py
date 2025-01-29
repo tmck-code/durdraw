@@ -6,6 +6,7 @@ import json
 import pdb
 import re
 from typing import List, Tuple, NamedTuple, Iterable
+import line_profiler
 
 import durdraw.log as log
 from durdraw.durdraw_undo import UndoRegister
@@ -59,6 +60,8 @@ def convert_movie_16_to_256_color_palette(mov):
 class Frame():
     """Frame class - single canvas size frame of animation. a traditional drawing.
     """
+
+    @line_profiler.profile
     def __init__(self, width, height):
         """ Initialize frame, content[x][y] grid """
         # it's a bunch of rows of ' 'characters.
@@ -89,6 +92,7 @@ class Frame():
     def setDelayValue(self, delayValue):
         self.delay = delayValue
 
+    @line_profiler.profile
     def initOldColorMap(self):
         """ Builds a dictionary mapping X/Y to a FG/BG color pair """
         self.colorMap = {}
@@ -96,6 +100,7 @@ class Frame():
             for y in range(0, self.sizeX):
                 self.colorMap.update( {(x,y):(1,0)} )  # tuple keypair (xy), tuple value (fg and bg)
 
+    @line_profiler.profile
     def initColorMap(self, fg=7, bg=0):
         """ Builds a list of lists """
         return [[[fg,0] * self.sizeY] * self.sizeX]
@@ -147,6 +152,7 @@ class FrameSegment:
         self.height = self.frame_end.y - self.frame_start.y + 1
 
     @staticmethod
+    @line_profiler.profile
     def from_frame(frame: Frame, start_x: int, start_y: int, end_x: int, end_y: int) -> FrameSegment:
         'Extract a segment from the frame'
         start = PixelCoord(x=start_x, y=start_y)
@@ -158,12 +164,14 @@ class FrameSegment:
             frame_end   = end,
         )
 
+    @line_profiler.profile
     def _pixel_coords(self) -> Iterable[PixelCoord]:
         for y in range(self.start.y, self.end.y+1):
             for x in range(self.start.x, self.end.x+1):
                 yield PixelCoord(x, y)
 
     @staticmethod
+    @line_profiler.profile
     def flip_matrix(matrix, width, height, horizontal=False, vertical=False):
         xrange, yrange, new_matrix = range(width), range(height), []
 
@@ -173,6 +181,7 @@ class FrameSegment:
                 new_matrix[y].append(matrix[rev_y if vertical else y][rev_x if horizontal else x])
         return new_matrix
 
+    @line_profiler.profile
     def flip(self, horizontal=False, vertical=False) -> FrameSegment:
         'Flip the contents horizontally and/or vertically'
         self.content = FrameSegment.flip_matrix(
@@ -186,11 +195,13 @@ class FrameSegment:
             horizontal, vertical
         )
 
+    @line_profiler.profile
     def fill(self, char: str, fg: int, bg: int) -> FrameSegment:
         'Fill the contents with a character and color'
         self.fillChar(char)
         self.fillColor(fg, bg)
 
+    @line_profiler.profile
     def fillColor(self, fg: int, bg: int) -> FrameSegment:
         'Fill the contents with a color'
         self.color_map = list(repeat(
@@ -198,12 +209,14 @@ class FrameSegment:
             self.height
         ))
 
+    @line_profiler.profile
     def fillChar(self, char: str) -> FrameSegment:
         'Fill the contents with a character'
         self.content = [[char] * self.width] * self.height
 
 class Movie():
     """ Contains an array of Frames, options to add, remove, copy them """
+    @line_profiler.profile
     def __init__(self, opts):
         self.frameCount = 0  # total number of frames
         self.currentFrameNumber = 0
@@ -221,6 +234,7 @@ class Movie():
         self.log = log.getLogger('movie')
         self.log.info('movie initialized', {'sizeX': self.sizeX, 'sizeY': self.sizeY})
 
+    @line_profiler.profile
     def applyFrameState(self, state: FrameState):
         for pixel_state in state.pixels:
             self.setChar(
@@ -234,15 +248,18 @@ class Movie():
         if state.delay:
             self.frames[state.frame_n].delay = state.delay
 
+    @line_profiler.profile
     def applyStates(self, state: FileState):
         for frame_state in state.frames:
             self.applyFrameState(frame_state)
 
+    @line_profiler.profile
     def setChar(self, frame_n, x, y, c, fg, bg):
         self.log.debug('setChar', {'frame': frame_n, 'x': x, 'y': y, 'c': c, 'fg': fg, 'bg': bg})
         self.frames[frame_n].content[y][x] = c
         self.frames[frame_n].newColorMap[y][x] = [fg, bg]
 
+    @line_profiler.profile
     def _segment_pixel_states(self, start_x, start_y, segment, frame_n):
         for y in range(start_y, start_y + segment.height):
             for x in range(start_x, start_x + segment.width):
@@ -262,6 +279,7 @@ class Movie():
                 )
                 yield old_state, new_state
 
+    @line_profiler.profile
     def _segment_frame_states(self, start_x, start_y, segment, frame_numbers, delay=None) -> [tuple, tuple]:
         'Returns old pixel states and new pixel states, both as tuples of PixelState'
         for frame_n in frame_numbers:
@@ -283,9 +301,11 @@ class Movie():
             )
             yield old_state, new_state
 
+    @line_profiler.profile
     def frame_states(self, start_x, start_y, segment, frame_numbers, delay=None) -> [Iterable[FrameState], Iterable[FrameState]]:
         return zip(*self._segment_frame_states(start_x, start_y, segment, frame_numbers, delay))
 
+    @line_profiler.profile
     def addFrame(self, frame):
         """ takes a Frame object, adds it into the movie """
         self.frames.append(frame)
@@ -370,6 +390,7 @@ class Movie():
         self.opts.sizeY = self.opts.sizeY - shrinkage
         #self.width = self.width - shrinkage
 
+    @line_profiler.profile
     def search_and_replace_color_pair(self, old_color, new_color, frange=None):
         if frange != None:  # apply to all frames in range
             for frameNum in range(frange[0] - 1, frange[1]):
@@ -405,6 +426,7 @@ class Movie():
                 col_num = 0
 
 
+    @line_profiler.profile
     def search_and_replace_color(self, old_color :int, new_color :int):
         found = False
         for frame in self.frames:
@@ -456,6 +478,7 @@ class Movie():
         return found
 
 
+    @line_profiler.profile
     def search_for_string(self, search_str: str, caller=None):
         #search_list = list(search)
         found = False
@@ -475,6 +498,7 @@ class Movie():
         return found    # should be false if execution reaches this point
 
 
+    @line_profiler.profile
     def change_palette_16_to_256(self):
         # Convert from blue to bright white by reducing their value by 1
         for frame in self.frames:
@@ -516,6 +540,7 @@ class Movie():
                         pair[0] = 1
                     col_num += 1
 
+    @line_profiler.profile
     def change_palette_256_to_16(self):
         # Convert from blue to bright white by reducing their value by 1
         for frame in self.frames:
@@ -558,6 +583,7 @@ class Movie():
                     col_num += 1
 
 
+    @line_profiler.profile
     def contains_high_colors(self):
         """ Returns True if any color above 16 is used, False otherwise """
         for frame in self.frames:
@@ -567,6 +593,7 @@ class Movie():
                         return True
         return False
 
+    @line_profiler.profile
     def contains_background_colors(self):
         """ Return true if any background color is set other than black or default """
         for frame in self.frames:
@@ -584,6 +611,7 @@ class Movie():
                     pair[1] = 0
         return True
 
+    @line_profiler.profile
     def strip_unprintable_characters(self):
         """ Remove all non-printable characters from canvas """
         #frame_num = 0
