@@ -273,9 +273,9 @@ class Movie():
                 )
                 old_state = PixelState(
                     coord = coord,
-                    ch   = self.frames[frame_n].content[y][x],
-                    fg   = self.frames[frame_n].newColorMap[y][x][0],
-                    bg   = self.frames[frame_n].newColorMap[y][x][1],
+                    ch   = self.frames[frame_n].content[y-start_y][x-start_x],
+                    fg   = self.frames[frame_n].newColorMap[y-start_y][x-start_x][0],
+                    bg   = self.frames[frame_n].newColorMap[y-start_y][x-start_x][1],
                 )
                 yield old_state, new_state
 

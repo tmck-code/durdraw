@@ -7080,6 +7080,9 @@ Can use ESC or META instead of ALT
     @line_profiler.profile
     def flipSegment(self, startPoint, height, width, horizontal=False, vertical=False):
         """ Flip the contents horizontally and/or vertically in the current frame, or framge range """
+
+        startPoint = [startPoint[0]-1, startPoint[1]-1]
+
         segment = FrameSegment.from_frame(
             self.mov.currentFrame,
             start_x=startPoint[1], start_y=startPoint[0],
@@ -7094,6 +7097,8 @@ Can use ESC or META instead of ALT
     @line_profiler.profile
     def deleteSegment(self, startPoint, height, width, frange=None):
         """ Delete everyting in the current frame, or framge range """
+
+        startPoint = [startPoint[0]-1, startPoint[1]-1]
 
         self.log.debug('deleting segment', {
             'startPoint': startPoint, 'height': height, 'width': width,
@@ -7110,6 +7115,7 @@ Can use ESC or META instead of ALT
     def fillSegment(self, startPoint, height, width, frange=None, fillFg=None, fillBg=None, fillChar="X"):
         """ Fill everyting in the current frame, or framge range, with selected character+color """
 
+        startPoint = [startPoint[0]-1, startPoint[1]-1]
         if frange is None:
             frange = [self.mov.currentFrameNumber-1, self.mov.currentFrameNumber]
         else:
