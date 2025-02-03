@@ -261,63 +261,73 @@ class Movie():
         self.frames[frame_n].newColorMap[y][x] = [fg, bg]
 
     @line_profiler.profile
+    def _pixel_states(self, start_x, start_y, end_x, end_y, frame_n):
+        self.log.debug('getting pixel states', {'start_x': start_x, 'start_y': start_y, 'frame_n': frame_n})
+        for y in range(start_y, end_y+1):
+            for x in range(start_x, end_x+1):
+                coord = PixelCoord(x=x, y=y)
+                self.log.debug(
+                    'getting pixel state', {'coord': coord, 'adjusted': {'x': x-start_x, 'y': y-start_y, 'params': {'start_x': start_x, 'start_y': start_y, 'x': x, 'y': y}}}
+                )
+                yield PixelState(
+                    coord = coord,
+                    ch   = self.frames[frame_n].content[y][x],
+                    fg   = self.frames[frame_n].newColorMap[y][x][0],
+                    bg   = self.frames[frame_n].newColorMap[y][x][1],
+                )
+
+    @line_profiler.profile
     def _segment_pixel_states(self, start_x, start_y, segment, frame_n):
         self.log.debug('getting pixel states', {'start_x': start_x, 'start_y': start_y, 'frame_n': frame_n})
         for y in range(start_y, start_y + segment.height):
             for x in range(start_x, start_x + segment.width):
                 coord = PixelCoord(x=x, y=y)
                 self.log.debug(
-                    'getting pixel state',
-                    {
-                        'coord': coord,
-                        'adjusted': {'x': x-start_x, 'y': y-start_y},
-                        'sizes': {
-                            'width': segment.width,
-                            'height': segment.height,
-                            'content': {'width': len(self.frames[frame_n].content[0]), 'height': len(self.frames[frame_n].content)}
-                        }
-                    }
+                    'getting pixel state', {'coord': coord, 'adjusted': {'x': x-start_x, 'y': y-start_y, 'params': {'start_x': start_x, 'start_y': start_y, 'x': x, 'y': y}}}
                 )
-                new_state = PixelState(
+                yield PixelState(
                     coord = coord,
                     ch    = segment.content[y-start_y][x-start_x],
                     fg    = segment.color_map[y-start_y][x-start_x][0],
                     bg    = segment.color_map[y-start_y][x-start_x][1],
                 )
-                old_state = PixelState(
-                    coord = coord,
-                    ch   = self.frames[frame_n].content[y][x],
-                    fg   = self.frames[frame_n].newColorMap[y][x][0],
-                    bg   = self.frames[frame_n].newColorMap[y][x][1],
-                )
-                yield old_state, new_state
+
+    @line_profiler.profile
+    def _frame_states(self, start_x, start_y, end_x, end_y, frame_numbers, delay=None) -> [tuple, tuple]:
+        'Returns old pixel states and new pixel states, both as tuples of PixelState'
+        self.log.debug('getting frame states', {'start_x': start_x, 'start_y': start_y, 'frame_numbers': frame_numbers})
+        for frame_n in range(frame_numbers[0], frame_numbers[1]+1):
+            yield FrameState(
+                delay  = self.frames[frame_n].delay,
+                pixels = tuple(self._pixel_states(start_x, start_y, end_x, end_y, frame_n)),
+                frame_n = frame_n,
+            )
 
     @line_profiler.profile
     def _segment_frame_states(self, start_x, start_y, segment, frame_numbers, delay=None) -> [tuple, tuple]:
         'Returns old pixel states and new pixel states, both as tuples of PixelState'
         self.log.debug('getting frame states', {'start_x': start_x, 'start_y': start_y, 'frame_numbers': frame_numbers})
         for frame_n in range(frame_numbers[0], frame_numbers[1]+1):
-            old_pixels, new_pixels = zip(
-                *self._segment_pixel_states(
-                    start_x, start_y,
-                    segment, frame_n
-                )
-            )
-            old_state = FrameState(
-                delay  = self.frames[frame_n].delay,
-                pixels = old_pixels,
-                frame_n = frame_n,
-            )
-            new_state = FrameState(
+            yield FrameState(
                 delay  = delay if delay else self.frames[frame_n].delay,
-                pixels = new_pixels,
+                pixels = tuple(self._segment_pixel_states(start_x, start_y, segment, frame_n)),
                 frame_n = frame_n,
             )
-            yield old_state, new_state
+
+    @line_profiler.profile
+    def new_states(self, start_x, start_y, segment, frame_numbers, delay=None) -> [Iterable[FrameState], Iterable[FrameState]]:
+        return list(self._segment_frame_states(start_x, start_y, segment, frame_numbers, delay))
+
+    @line_profiler.profile
+    def current_states(self, start_x, start_y, end_x, end_y, frame_numbers) -> [Iterable[FrameState], Iterable[FrameState]]:
+        return list(self._frame_states(start_x, start_y, end_x, end_y, frame_numbers))
 
     @line_profiler.profile
     def frame_states(self, start_x, start_y, segment, frame_numbers, delay=None) -> [Iterable[FrameState], Iterable[FrameState]]:
-        return zip(*self._segment_frame_states(start_x, start_y, segment, frame_numbers, delay))
+        return (
+            self.current_states(start_x, start_y, start_x + segment.width, start_y + segment.height, frame_numbers),
+            self.new_states(start_x, start_y, segment, frame_numbers, delay),
+        )
 
     @line_profiler.profile
     def addFrame(self, frame):
