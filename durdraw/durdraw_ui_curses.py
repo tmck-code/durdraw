@@ -6669,11 +6669,9 @@ Can use ESC or META instead of ALT
         self.clearStatusBar()
         #self.addstr(self.statusBarLineNum, 0, f"Use arrow keys to make selection, enter when done.")
         while selecting:
-            self.log.debug('selecting')
             endPoint =  [self.xy[0],  self.xy[1]]   # set to wherever the cursor is
             self.refresh()
             self.addstr(self.statusBarLineNum + 1, 0, f"Use arrow keys to make selection, enter when done.")
-            self.log.debug('selecting', {'startPoint': startPoint, 'endPoint': endPoint})
             # draw block area on top of drawing area
             mov = self.mov
             if endPoint[0] >= startPoint[0]:    # if we're moving right of start point
@@ -6710,7 +6708,8 @@ Can use ESC or META instead of ALT
             # end draw block area
             #self.stdscr.redrawwin()
             c = self.stdscr.getch()
-            self.log.debug('selecting', {'c': c})
+            self.log.debug('selecting', {'startPoint': startPoint, 'endPoint': endPoint, 'c': c, 'firstColNum': firstColNum, 'lastColNum': lastColNum, 'firstLineNum': firstLineNum, 'lastLineNum': lastLineNum})
+
             if c in [98, curses.KEY_LEFT, curses.KEY_SLEFT]:
                 self.move_cursor_left()
             elif c in [98, curses.KEY_RIGHT, curses.KEY_SRIGHT]:
@@ -7080,7 +7079,9 @@ Can use ESC or META instead of ALT
     def flipSegment(self, startPoint, height, width, horizontal=False, vertical=False):
         """ Flip the contents horizontally and/or vertically in the current frame, or framge range """
 
-        startPoint = [startPoint[0]-1, startPoint[1]-1]
+        startPoint = [startPoint[0], startPoint[1]-1]
+        width, height = width-1, height-1
+        self.log.debug('flipping segment', {'start_x': startPoint[1], 'start_y': startPoint[0], 'height': height, 'width': width, 'frame': {'width': self.mov.sizeX, 'height': self.mov.sizeY}})
 
         segment = FrameSegment.from_frame(
             self.mov.currentFrame,
@@ -7091,13 +7092,14 @@ Can use ESC or META instead of ALT
             horizontal=horizontal, vertical=vertical
         )
         self.log.debug('flipped segment', {'startPoint': startPoint, 'height': height, 'width': width})
-        self.applySegmentChange(segment, startPoint[1], startPoint[0], [self.mov.currentFrameNumber-1])
+        self.applySegmentChange(segment, startPoint[1], startPoint[0], [self.mov.currentFrameNumber-1, self.mov.currentFrameNumber-1])
 
     @line_profiler.profile
     def deleteSegment(self, startPoint, height, width, frange=None):
         """ Delete everyting in the current frame, or framge range """
 
-        startPoint = [startPoint[0]-1, startPoint[1]-1]
+        startPoint = [startPoint[0], startPoint[1]-1]
+        width, height = width-1, height-1
 
         self.log.debug('deleting segment', {
             'startPoint': startPoint, 'height': height, 'width': width,
@@ -7114,14 +7116,15 @@ Can use ESC or META instead of ALT
     def fillSegment(self, startPoint, height, width, frange=None, fillFg=None, fillBg=None, fillChar="X"):
         """ Fill everyting in the current frame, or framge range, with selected character+color """
 
-        startPoint = [startPoint[0]-1, startPoint[1]-1]
+        startPoint = [startPoint[0], startPoint[1]-1]
+        width, height = width-1, height-1
         if frange is None:
-            frange = [self.mov.currentFrameNumber-1, self.mov.currentFrameNumber]
+            frange = [self.mov.currentFrameNumber-1, self.mov.currentFrameNumber-1]
         else:
             frange = [frange[0]-1, frange[1]-1]
         self.log.debug('filling segment', {
             'startPoint': startPoint, 'height': height, 'width': width,
-            'frange': frange, 'currentFrame': self.mov.currentFrameNumber, 'n_frames': len(self.mov.frames)
+            'frange': frange, 'currentFrame': self.mov.currentFrameNumber, 'n_frames': len(self.mov.frames), 'frame': {'width': self.mov.sizeX, 'height': self.mov.sizeY}
         })
 
         segment = FrameSegment.from_frame(
@@ -7137,6 +7140,7 @@ Can use ESC or META instead of ALT
 
     @line_profiler.profile
     def applySegmentChange(self, frame_segment, start_x, start_y, frame_numbers):
+        self.log.debug('applying segment change', {'start_x': start_x, 'start_y': start_y, 'frame_numbers': frame_numbers})
         old_state, new_state = self.mov.frame_states(
             start_x       = start_x,
             start_y       = start_y,

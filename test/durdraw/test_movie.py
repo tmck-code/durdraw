@@ -22,7 +22,7 @@ class TestSegment:
         segment = movie.FrameSegment.from_frame(
             frame,
             start_x=1, start_y=1,
-            width=3, height=3,
+            end_x=3, end_y=3,
         )
         expected = movie.FrameSegment(
             content=[
