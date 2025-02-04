@@ -36,7 +36,7 @@ import durdraw.durdraw_file as durfile
 from durdraw.durdraw_ui_widgets import StatusBar
 import durdraw.durdraw_gui_manager as durgui
 import durdraw.durdraw_movie as durmovie
-from durdraw.durdraw_movie import UndoStates, FileState, PixelState, PixelCoord, MouseCoord, FrameState
+from durdraw.durdraw_movie import UndoStates, FileState, PixelState, PixelCoord, PixelColor, MouseCoord, FrameState
 
 import durdraw.neofetcher as neofetcher
 import durdraw.durdraw_color_curses as dur_ansilib
@@ -890,8 +890,7 @@ class UserInterface():  # Separate view (curses) from this controller
                     PixelState(
                         coord = PixelCoord(x=x-1, y=y),
                         ch    = chr(c),
-                        fg    = self.mov.frames[fn].newColorMap[y][x-1][0],
-                        bg    = self.mov.frames[fn].newColorMap[y][x-1][1],
+                        color = PixelColor(*self.mov.frames[fn].newColorMap[y][x-1]),
                     )
                 ])
             )
@@ -910,8 +909,7 @@ class UserInterface():  # Separate view (curses) from this controller
                     PixelState(
                         coord = PixelCoord(x=x-1, y=y),
                         ch    = self.mov.currentFrame.content[y][x-1],
-                        fg    = self.mov.currentFrame.newColorMap[y][x-1][0],
-                        bg    = self.mov.currentFrame.newColorMap[y][x-1][1]
+                        color = PixelColor(*self.mov.currentFrame.newColorMap[y][x-1]),
                     )
                 ])
             ],
