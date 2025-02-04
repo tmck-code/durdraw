@@ -699,7 +699,9 @@ class UserInterface():  # Separate view (curses) from this controller
         if not self.mov.undo_register.can_undo:
             self.log.debug('undo', {'msg': 'nothing to undo'})
             return
+        start = time.time()
         undo_states = self.mov.undo_register.undo()
+        self.log.debug('undo', {'time': time.time()-start})
         self.mov.applyStates(undo_states.previous)
 
         if undo_states.previous.mouse is not None:
@@ -713,7 +715,9 @@ class UserInterface():  # Separate view (curses) from this controller
         if not self.mov.undo_register.can_redo:
             self.log.debug('redo', {'msg': 'nothing to redo'})
             return
+        start = time.time()
         undo_states = self.mov.undo_register.redo()
+        self.log.debug('redo', {'time': time.time()-start})
         self.mov.applyStates(undo_states.current)
 
         if undo_states.current.mouse is not None:
