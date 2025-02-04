@@ -28,6 +28,7 @@ class UndoManager():  # pass it a UserInterface object so Undo can tell UI
         def push(self): # maybe should be called pushState or saveState?
             """ Take current movie, add to the end of a list of movie
                 objects - ie, push current state onto the undo stack. """
+            return
             if self.modifications > 0:
                 if self.appState.modified == False:
                     self.appState.modified = True
@@ -48,6 +49,7 @@ class UndoManager():  # pass it a UserInterface object so Undo can tell UI
 
         @line_profiler.profile
         def undo(self):
+            return
             self.log.debug('undo', {'modifications': self.modifications, 'list size': len(self.undoList), 'idx': self.undoIndex})
             if self.modifications > 1:
                 self.modifications = self.modifications - 1
@@ -69,6 +71,7 @@ class UndoManager():  # pass it a UserInterface object so Undo can tell UI
 
         @line_profiler.profile
         def redo(self):
+            return
             self.log.debug('redo', {'modifications': self.modifications, 'list size': len(self.undoList), 'idx': self.undoIndex})
             if self.undoIndex < (len(self.undoList) -1): # we can redo
                 self.undoIndex += 1 # go to next redo state
