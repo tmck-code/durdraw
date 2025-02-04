@@ -6753,14 +6753,14 @@ Can use ESC or META instead of ALT
                     elif chr(prompt_ch) in ['x', 'X']:    # flip horizontally
                         self.log.debug('flipping horizontally', {'firstLineNum': firstLineNum, 'firstColNum': firstColNum, 'height': height, 'width': width})
                         segment.flip(horizontal=True)
-                        self.applySegmentChange(segment, firstLineNum-1, firstColNum-1)
+                        self.applySegmentChange(segment, start_x=firstColNum-1, start_y=firstLineNum)
                         #self.flipSegment([firstLineNum, firstColNum], height, width, horizontal=True)
                         #prompting = False
                         self.refresh()
                     elif chr(prompt_ch) in ['y', 'Y']:    # flip vertically 
                         self.log.debug('flipping vertically', {'firstLineNum': firstLineNum, 'firstColNum': firstColNum, 'height': height, 'width': width})
                         segment.flip(vertical=True)
-                        self.applySegmentChange(segment, firstLineNum-1, firstColNum-1)
+                        self.applySegmentChange(segment, start_x=firstColNum-1, start_y=firstLineNum)
 
                         #self.flipSegment([firstLineNum, firstColNum], height, width, vertical=True)
                         #prompting = False
