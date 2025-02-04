@@ -5,6 +5,7 @@
     - [Summarised](#summarised)
   - [Feature List](#feature-list)
   - [Implementation](#implementation)
+    - [WIP](#wip)
     - [Performance Details](#performance-details)
   - [Considerations \& Challenges](#considerations--challenges)
   - [Opportunities](#opportunities)
@@ -216,14 +217,14 @@ On another note, here are some logs from the very rough POC implementation in du
   - [ ] Delete Line
   - [ ] Add Line
 - [ ] Box selections
-  - [ ] Start Selecting
+  - [x] Start Selecting
   - [ ] Ask How To Paste
   - [ ] Paste From Clipboard
   - [ ] Copy Segment To All Frames
-  - [ ] Flip Segment Vertical
+  - [x] Flip Segment Vertical
   - [x] Flip Segment Horizontal
-  - [ ] Delete Segment
-  - [ ] Fill Segment
+  - [x] Delete Segment
+  - [x] Fill Segment
   - [ ] Color Segment
 - [ ] Undo/Redo
   - [x] Clicked Undo
