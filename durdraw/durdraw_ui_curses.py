@@ -6738,7 +6738,21 @@ Can use ESC or META instead of ALT
                 prompting = True
                 self.clearStatusBar()
                 self.promptPrint("[C]opy, Cu[t], [D]elete, [F]ill, Co[l]or, Flip [X/Y], New [B]rush, copy to [A]ll Frames in range? " )
+
                 segment = self.createSegment([firstLineNum, firstColNum], height, width)
+
+                current_state = FileState(
+                    mouse  = MouseCoord(
+                        pixel = PixelCoord(x=self.xy[1], y=self.xy[0]),
+                        frame = self.mov.currentFrameNumber-1
+                    ),
+                    frames = self.mov.current_states(
+                        start_x=firstColNum-1, start_y=firstLineNum,
+                        end_x=lastColNum, end_y=lastLineNum,
+                        frame_numbers=[self.mov.currentFrameNumber-1, self.mov.currentFrameNumber-1],
+                    )
+                )
+                new_state = None
 
                 while prompting:
                     prompt_ch = self.stdscr.getch()
@@ -6753,14 +6767,14 @@ Can use ESC or META instead of ALT
                     elif chr(prompt_ch) in ['x', 'X']:    # flip horizontally
                         self.log.debug('flipping horizontally', {'firstLineNum': firstLineNum, 'firstColNum': firstColNum, 'height': height, 'width': width})
                         segment.flip(horizontal=True)
-                        self.applySegmentChange(segment, start_x=firstColNum-1, start_y=firstLineNum)
+                        new_state = self.applySegmentChange(segment, start_x=firstColNum-1, start_y=firstLineNum)
                         #self.flipSegment([firstLineNum, firstColNum], height, width, horizontal=True)
                         #prompting = False
                         self.refresh()
                     elif chr(prompt_ch) in ['y', 'Y']:    # flip vertically 
                         self.log.debug('flipping vertically', {'firstLineNum': firstLineNum, 'firstColNum': firstColNum, 'height': height, 'width': width})
                         segment.flip(vertical=True)
-                        self.applySegmentChange(segment, start_x=firstColNum-1, start_y=firstLineNum)
+                        new_state = self.applySegmentChange(segment, start_x=firstColNum-1, start_y=firstLineNum)
 
                         #self.flipSegment([firstLineNum, firstColNum], height, width, vertical=True)
                         #prompting = False
@@ -6775,19 +6789,24 @@ Can use ESC or META instead of ALT
                         else:
                             self.copySegmentToClipboard(segment)
                             self.undo.push()
-                            self.deleteSegment(segment)
+                            segment.fill(char=' ', fg=self.appState.defaultFgColor, bg=self.appState.defaultBgColor)
+                            new_state = self.applySegmentChange(segment, start_x=firstColNum-1, start_y=firstLineNum)
+
                             askingAboutRange = False
                         while askingAboutRange:
                             prompt_ch = self.stdscr.getch()
                             if chr(prompt_ch) in ['y', 'Y']:    # yes, all range
                                 self.copySegmentToClipboard(segment)
                                 self.undo.push()
-                                self.deleteSegment(segment, frange=self.appState.playbackRange)
+                                segment.fill(char=' ', fg=self.appState.defaultFgColor, bg=self.appState.defaultBgColor)
+                                new_state = self.applySegmentChange(segment, start_x=firstColNum-1, start_y=firstLineNum, frange=self.appState.playbackRange)
                                 askingAboutRange = False
                             if chr(prompt_ch) in ['n', 'N']:    # No, only one frame
                                 self.copySegmentToClipboard(segment)
                                 self.undo.push()
-                                self.deleteSegment(segment)
+                                segment.fill(char=' ', fg=self.appState.defaultFgColor, bg=self.appState.defaultBgColor)
+                                new_state = self.applySegmentChange(segment, start_x=firstColNum-1, start_y=firstLineNum)
+
                                 askingAboutRange = False
                             elif prompt_ch == 27:  # esc, cancel
                                 askingAboutRange = False
@@ -6799,17 +6818,23 @@ Can use ESC or META instead of ALT
                             askingAboutRange = True
                         else:
                             self.undo.push()
-                            self.deleteSegment(segment)
+                            segment.fill(char=' ', fg=self.appState.defaultFgColor, bg=self.appState.defaultBgColor)
+                            new_state = self.applySegmentChange(segment, start_x=firstColNum-1, start_y=firstLineNum)
+
                             askingAboutRange = False
                         while askingAboutRange:
                             prompt_ch = self.stdscr.getch()
                             if chr(prompt_ch) in ['y', 'Y']:    # yes, all range
                                 self.undo.push()
-                                self.deleteSegment(segment, frange=self.appState.playbackRange)
+                                segment.fill(char=' ', fg=self.appState.defaultFgColor, bg=self.appState.defaultBgColor)
+                                new_state = self.applySegmentChange(segment, start_x=firstColNum-1, start_y=firstLineNum, frange=self.appState.playbackRange)
+
                                 askingAboutRange = False
                             if chr(prompt_ch) in ['n', 'N']:    # yes, all range
                                 self.undo.push()
-                                self.deleteSegment(segment)
+                                segment.fill(char=' ', fg=self.appState.defaultFgColor, bg=self.appState.defaultBgColor)
+                                new_state = self.applySegmentChange(segment, start_x=firstColNum-1, start_y=firstLineNum)
+
                                 askingAboutRange = False
                             elif prompt_ch == 27:  # esc, cancel
                                 askingAboutRange = False
@@ -6942,12 +6967,12 @@ Can use ESC or META instead of ALT
                         # We're in in edit/canvas area
                         self.xy[1] = mouseX + 1 + self.appState.firstCol # set cursor position
                         self.xy[0] = mouseY + self.appState.topLine
-                            
-
-            elif c == 27:   # esc
+            elif c == 27: # esc
                 selecting = False
 
-        self.applySegmentChange(segment, start_x=firstColNum-1, start_y=firstLineNum, frange=frange)
+        self.mov.undo_register.push(
+            UndoStates(previous = current_state, current = new_state)
+        )
 
         if self.playing:
             self.stdscr.nodelay(1)
@@ -7122,13 +7147,6 @@ Can use ESC or META instead of ALT
         )
 
     @line_profiler.profile
-    def deleteSegment(self, segment, frange=None):
-        """ Delete everyting in the current frame, or framge range """
-        self.log.debug('deleting segment', {'frange': frange})
-        segment.fill(char=' ', fg=self.appState.defaultFgColor, bg=self.appState.defaultBgColor)
-
-
-    @line_profiler.profile
     def applySegmentChange(self, frame_segment, start_x, start_y, frange=None):
         self.log.debug('applying segment change', {'start_x': start_x, 'start_y': start_y, 'frange': frange})
 
@@ -7148,13 +7166,13 @@ Can use ESC or META instead of ALT
             pixel = PixelCoord(x=self.xy[1], y=self.xy[0]),
             frame = self.mov.currentFrameNumber-1
         )
-
-        self.push(
-            old_mouse_state = mouse_state,
-            new_mouse_state = mouse_state,
-            old_state       = old_state,
-            new_state       = new_state,
+        new_file_state = FileState(
+            mouse  = mouse_state,
+            frames = new_state,
         )
+        self.mov.applyStates(new_file_state)
+
+        return new_file_state
 
 
     def colorSegment(self, startPoint, height, width, frange=None):
