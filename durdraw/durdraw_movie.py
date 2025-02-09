@@ -143,7 +143,8 @@ class UndoStates(NamedTuple):
 @dataclass
 class FrameSegment:
     content:     list
-    color_map:   list
+    fg_colors:   list
+    bg_colors:   list
     frame_start: PixelCoord
     frame_end:   PixelCoord
     width:       int = field(init=False)
@@ -160,9 +161,11 @@ class FrameSegment:
         'Extract a segment from the frame'
         start = PixelCoord(x=start_x, y=start_y)
         end = PixelCoord(x=end_x, y=end_y)
+        color_map = [row[start.x:end.x+1] for row in frame.newColorMap[start.y:end.y+1]]
         return FrameSegment(
             content     = [row[start.x:end.x+1] for row in frame.content[start.y:end.y+1]],
-            color_map   = [row[start.x:end.x+1] for row in frame.newColorMap[start.y:end.y+1]],
+            fg_colors   = [[el[0] for el in row] for row in color_map],
+            bg_colors   = [[el[1] for el in row] for row in color_map],
             frame_start = start,
             frame_end   = end,
         )
@@ -192,25 +195,34 @@ class FrameSegment:
             self.width, self.height,
             horizontal, vertical
         )
-        self.color_map = FrameSegment.flip_matrix(
-            self.color_map,
+        self.fg_colors = FrameSegment.flip_matrix(
+            self.fg_colors,
+            self.width, self.height,
+            horizontal, vertical
+        )
+        self.bg_colors = FrameSegment.flip_matrix(
+            self.bg_colors,
             self.width, self.height,
             horizontal, vertical
         )
 
     @line_profiler.profile
-    def fill(self, char: str, fg: int, bg: int) -> FrameSegment:
+    def delete(self):
+        self.fill(char=' ', fg=self.appState.defaultFgColor, bg=self.appState.defaultBgColor)
+
+    @line_profiler.profile
+    def fill(self, char: str, fg: int = None, bg: int = None) -> FrameSegment:
         'Fill the contents with a character and color'
         self.fillChar(char)
         self.fillColor(fg, bg)
 
     @line_profiler.profile
-    def fillColor(self, fg: int, bg: int) -> FrameSegment:
+    def fillColor(self, fg: int = None, bg: int = None) -> FrameSegment:
         'Fill the contents with a color'
-        self.color_map = list(repeat(
-            list(repeat([fg, bg], self.width)),
-            self.height
-        ))
+        if fg is not None:
+            self.fg_colors = [[fg] * self.width] * self.height
+        if bg is not None:
+            self.bg_colors = [[bg] * self.width] * self.height
 
     @line_profiler.profile
     def fillChar(self, char: str) -> FrameSegment:
@@ -289,7 +301,10 @@ class Movie():
                 yield PixelState(
                     coord = coord,
                     ch    = segment.content[y-start_y][x-start_x],
-                    color = PixelColor(*segment.color_map[y-start_y][x-start_x])
+                    color = PixelColor(
+                        segment.fg_colors[y-start_y][x-start_x],
+                        segment.bg_colors[y-start_y][x-start_x]
+                    )
                 )
 
     @line_profiler.profile

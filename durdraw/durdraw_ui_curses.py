@@ -6739,20 +6739,9 @@ Can use ESC or META instead of ALT
                 self.clearStatusBar()
                 self.promptPrint("[C]opy, Cu[t], [D]elete, [F]ill, Co[l]or, Flip [X/Y], New [B]rush, copy to [A]ll Frames in range? " )
 
-                segment = self.createSegment([firstLineNum, firstColNum], height, width)
-
-                current_state = FileState(
-                    mouse  = MouseCoord(
-                        pixel = PixelCoord(x=self.xy[1], y=self.xy[0]),
-                        frame = self.mov.currentFrameNumber-1
-                    ),
-                    frames = self.mov.current_states(
-                        start_x=firstColNum-1, start_y=firstLineNum,
-                        end_x=lastColNum, end_y=lastLineNum,
-                        frame_numbers=[self.mov.currentFrameNumber-1, self.mov.currentFrameNumber-1],
-                    )
-                )
-                new_state = None
+                segment       = self.createSegment([firstLineNum, firstColNum], height, width)
+                current_state = self.segmentState(segment, start_x=firstColNum-1, start_y=firstLineNum)
+                new_state, frange = None, None
 
                 while prompting:
                     prompt_ch = self.stdscr.getch()
@@ -6765,22 +6754,13 @@ Can use ESC or META instead of ALT
                     #if chr(prompt_ch) in ['m', 'M']:    # move
                     #    prompting = False
                     elif chr(prompt_ch) in ['x', 'X']:    # flip horizontally
-                        self.log.debug('flipping horizontally', {'firstLineNum': firstLineNum, 'firstColNum': firstColNum, 'height': height, 'width': width})
                         segment.flip(horizontal=True)
-                        new_state = self.applySegmentChange(segment, start_x=firstColNum-1, start_y=firstLineNum)
-                        #self.flipSegment([firstLineNum, firstColNum], height, width, horizontal=True)
-                        #prompting = False
+                        self.applySegmentChange(segment, start_x=firstColNum-1, start_y=firstLineNum)
                         self.refresh()
                     elif chr(prompt_ch) in ['y', 'Y']:    # flip vertically 
-                        self.log.debug('flipping vertically', {'firstLineNum': firstLineNum, 'firstColNum': firstColNum, 'height': height, 'width': width})
                         segment.flip(vertical=True)
-                        new_state = self.applySegmentChange(segment, start_x=firstColNum-1, start_y=firstLineNum)
-
-                        #self.flipSegment([firstLineNum, firstColNum], height, width, vertical=True)
-                        #prompting = False
+                        self.applySegmentChange(segment, start_x=firstColNum-1, start_y=firstLineNum)
                         self.refresh()
-                    #    self.undo.push()
-                    #    self.mov.currentFrame.flip_horizontal()
                     if chr(prompt_ch) in ['t', 'T']:    # Cut to clipboard
                         self.clearStatusBar()
                         if self.mov.hasMultipleFrames():
@@ -6799,14 +6779,13 @@ Can use ESC or META instead of ALT
                                 self.copySegmentToClipboard(segment)
                                 self.undo.push()
                                 segment.fill(char=' ', fg=self.appState.defaultFgColor, bg=self.appState.defaultBgColor)
-                                new_state = self.applySegmentChange(segment, start_x=firstColNum-1, start_y=firstLineNum, frange=self.appState.playbackRange)
+                                frange = self.appState.playbackRange
+
                                 askingAboutRange = False
                             if chr(prompt_ch) in ['n', 'N']:    # No, only one frame
                                 self.copySegmentToClipboard(segment)
                                 self.undo.push()
                                 segment.fill(char=' ', fg=self.appState.defaultFgColor, bg=self.appState.defaultBgColor)
-                                new_state = self.applySegmentChange(segment, start_x=firstColNum-1, start_y=firstLineNum)
-
                                 askingAboutRange = False
                             elif prompt_ch == 27:  # esc, cancel
                                 askingAboutRange = False
@@ -6819,7 +6798,6 @@ Can use ESC or META instead of ALT
                         else:
                             self.undo.push()
                             segment.fill(char=' ', fg=self.appState.defaultFgColor, bg=self.appState.defaultBgColor)
-                            new_state = self.applySegmentChange(segment, start_x=firstColNum-1, start_y=firstLineNum)
 
                             askingAboutRange = False
                         while askingAboutRange:
@@ -6827,14 +6805,12 @@ Can use ESC or META instead of ALT
                             if chr(prompt_ch) in ['y', 'Y']:    # yes, all range
                                 self.undo.push()
                                 segment.fill(char=' ', fg=self.appState.defaultFgColor, bg=self.appState.defaultBgColor)
-                                new_state = self.applySegmentChange(segment, start_x=firstColNum-1, start_y=firstLineNum, frange=self.appState.playbackRange)
+                                frange = self.appState.playbackRange
 
                                 askingAboutRange = False
                             if chr(prompt_ch) in ['n', 'N']:    # yes, all range
                                 self.undo.push()
                                 segment.fill(char=' ', fg=self.appState.defaultFgColor, bg=self.appState.defaultBgColor)
-                                new_state = self.applySegmentChange(segment, start_x=firstColNum-1, start_y=firstLineNum)
-
                                 askingAboutRange = False
                             elif prompt_ch == 27:  # esc, cancel
                                 askingAboutRange = False
@@ -6846,17 +6822,19 @@ Can use ESC or META instead of ALT
                             askingAboutRange = True
                         else:
                             self.undo.push()
-                            self.colorSegment([firstLineNum, firstColNum], height, width)
+                            segment.fillColor(fg=self.colorfg, bg=self.colorbg)
                             askingAboutRange = False
                         while askingAboutRange:
                             prompt_ch = self.stdscr.getch()
                             if chr(prompt_ch) in ['y', 'Y']:    # yes, all range
                                 self.undo.push()
-                                self.colorSegment([firstLineNum, firstColNum], height, width, frange=self.appState.playbackRange)
+                                segment.fillColor(fg=self.colorfg, bg=self.colorbg)
+                                frange = self.appState.playbackRange
+
                                 askingAboutRange = False
-                            if chr(prompt_ch) in ['n', 'N']:    # yes, all range
+                            if chr(prompt_ch) in ['n', 'N']:    # no, only current frame
                                 self.undo.push()
-                                self.colorSegment([firstLineNum, firstColNum], height, width)
+                                segment.fillColor(fg=self.colorfg, bg=self.colorbg)
                                 askingAboutRange = False
                             elif prompt_ch == 27:  # esc, cancel
                                 askingAboutRange = False
@@ -6904,20 +6882,18 @@ Can use ESC or META instead of ALT
                                 askingAboutRange = True
                             else:   # Just one frame, so don't worry about the range.
                                 self.undo.push()
-                                segment.fill(char=drawChar, fg=self.appState.defaultFgColor, bg=self.appState.defaultBgColor)
+                                segment.fillChar(char=drawChar)
                                 askingAboutRange = False
                         while askingAboutRange:
                             prompt_ch = self.stdscr.getch()
                             if chr(prompt_ch) in ['y', 'Y']:    # yes, all range
                                 self.undo.push()
-                                segment.fill(char=drawChar, fg=self.appState.defaultFgColor, bg=self.appState.defaultBgColor)
+                                segment.fillChar(char=drawChar)
                                 frange = self.appState.playbackRange
-
                                 askingAboutRange = False
                             if chr(prompt_ch) in ['n', 'N']:    # yes, all range
                                 self.undo.push()
-                                segment.fill(char=drawChar, fg=self.appState.defaultFgColor, bg=self.appState.defaultBgColor)
-                                # self.fillSegment([firstLineNum, firstColNum], height, width, fillChar=drawChar)
+                                segment.fillChar(char=drawChar)
                                 askingAboutRange = False
                             elif prompt_ch == 27:  # esc, cancel
                                 askingAboutRange = False
@@ -6970,6 +6946,12 @@ Can use ESC or META instead of ALT
             elif c == 27: # esc
                 selecting = False
 
+        new_state = self.applySegmentChange(
+            segment,
+            start_x = firstColNum-1,
+            start_y = firstLineNum,
+            frange  = frange
+        )
         self.mov.undo_register.push(
             UndoStates(previous = current_state, current = new_state)
         )
@@ -7119,17 +7101,17 @@ Can use ESC or META instead of ALT
         self.log.debug('pasting segment', {'startPoint': startPoint, 'segment': segment, 'frange': frange})
         self.applySegmentChange(
             segment,
-            start_x       = startPoint[1],
-            start_y       = startPoint[0],
-            frame_numbers = frange,
+            start_x = startPoint[1],
+            start_y = startPoint[0],
+            frange  = frange,
         )
 
     def pasteFromClipboard(self, frange=None, transparent=False):
         self.log.debug(
             'pasting segment from clipboard',
-            {'frange': frange, 'transparent': transparent, 'xy': self.xy, 'start_x': self.xy[1], 'start_y': self.xy[0], 'frame_numbers': frame_numbers}
+            {'frange': frange, 'transparent': transparent, 'xy': self.xy, 'start_x': self.xy[1], 'start_y': self.xy[0]}
         )
-        self.pasteSegment(self.xy, self.clipboard, frange=frange)
+        self.pasteSegment(self.xy, self.clipBoard, frange=frange)
 
     @line_profiler.profile
     def createSegment(self, startPoint, height, width):
@@ -7144,6 +7126,21 @@ Can use ESC or META instead of ALT
             start_y = startPoint[0],
             end_x   = startPoint[1]+width,
             end_y   = startPoint[0]+height,
+        )
+
+    @line_profiler.profile
+    def segmentState(self, segment, start_x, start_y) -> FileState:
+        'Returns the state of the segment in the current frame'
+        return FileState(
+            mouse  = MouseCoord(
+                pixel = PixelCoord(x=self.xy[1], y=self.xy[0]),
+                frame = self.mov.currentFrameNumber-1
+            ),
+            frames = self.mov.current_states(
+                start_x=start_x, start_y=start_y,
+                end_x=start_x+segment.width-1, end_y=start_y+segment.height-1,
+                frame_numbers=[self.mov.currentFrameNumber-1, self.mov.currentFrameNumber-1],
+            )
         )
 
     @line_profiler.profile
