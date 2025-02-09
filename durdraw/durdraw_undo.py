@@ -133,17 +133,19 @@ class UndoRegister:
     def undo(self):
         if not self.undoBuf:
             return None
-        self.redoBuf.appendleft(self.undoBuf.pop())
+        item = self.undoBuf.pop()
+        self.redoBuf.appendleft(item)
         # self.logger.debug('undo', {'undoBuf': str(list(self.undoBuf)[-2:-1])[:100], 'redoBuf': str(list(self.redoBuf)[0:1])[:100]})
-        return self.redoBuf[0]
+        return item
 
     @line_profiler.profile
     def redo(self):
         if not self.redoBuf:
             return None
-        self.undoBuf.append(self.redoBuf.popleft())
+        item = self.redoBuf.popleft()
+        self.undoBuf.append(item)
         # self.logger.debug('redo', {'undoBuf': str(list(self.undoBuf)[-2:-1])[:100], 'redoBuf': str(list(self.redoBuf)[0:1])[:100]})
-        return self.undoBuf[-1]
+        return item
 
     @property
     @line_profiler.profile
