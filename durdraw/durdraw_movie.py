@@ -1,7 +1,6 @@
 from __future__ import annotations
 from copy import deepcopy
 from dataclasses import dataclass, field
-from itertools import repeat
 import json
 import pdb
 import re
@@ -117,22 +116,20 @@ class MovieState(NamedTuple):
     sizeX: int
     sizeY: int
 
-class PixelColor(NamedTuple):
-    fg: int
-    bg: int
-
-class PixelState(NamedTuple):
-    coord: PixelCoord
-    ch:    str
-    color: PixelColor
+class FrameContent(NamedTuple):
+    content:   List[str]
+    fg_colors: List[int]
+    bg_colors: List[int]
 
 class FrameState(NamedTuple):
-    delay:  int
+    delay:   int
     frame_n: int
-    pixels: Tuple[PixelState] = tuple()
+    rows:    Tuple[Tuple[FrameContent]]
+    start:   PixelCoord
+    end:     PixelCoord
 
 class FileState(NamedTuple):
-    mouse:  FramePixelCoord = None
+    mouse:  MouseCoord = None
     movie:  MovieState = None
     frames: Tuple[FrameState] = tuple()
 
@@ -251,14 +248,10 @@ class Movie():
 
     @line_profiler.profile
     def applyFrameState(self, state: FrameState):
-        for pixel_state in state.pixels:
-            self.setChar(
-                frame_n = state.frame_n,
-                x       = pixel_state.coord.x,
-                y       = pixel_state.coord.y,
-                c       = pixel_state.ch,
-                color   = pixel_state.color,
-            )
+        # TODO: Optimize this - store the chars/fg/bg in a more convenient format
+        for i, row in enumerate(state.rows):
+            self.frames[state.frame_n].content[i+state.start.y][state.start.x:state.end.x] = row.content
+            self.frames[state.frame_n].newColorMap[i+state.start.y][state.start.x:state.end.x] = list(zip(row.fg_colors, row.bg_colors))
         if state.delay:
             self.frames[state.frame_n].delay = state.delay
 
@@ -274,38 +267,19 @@ class Movie():
         self.frames[frame_n].content[y][x] = c
         self.frames[frame_n].newColorMap[y][x] = list(color)
 
-    @line_profiler.profile
-    def _pixel_states(self, start_x, start_y, end_x, end_y, frame_n):
-        self.log.debug('getting pixel states', {'start_x': start_x, 'start_y': start_y, 'frame_n': frame_n})
-        for y in range(start_y, end_y+1):
-            for x in range(start_x, end_x+1):
-                coord = PixelCoord(x=x, y=y)
-                # self.log.debug(
-                #     'getting pixel state', {'coord': coord, 'adjusted': {'x': x-start_x, 'y': y-start_y, 'params': {'start_x': start_x, 'start_y': start_y, 'x': x, 'y': y}}}
-                # )
-                yield PixelState(
-                    coord = coord,
-                    ch    = self.frames[frame_n].content[y][x],
-                    color = PixelColor(*self.frames[frame_n].newColorMap[y][x])
-                )
+    def _segment_row_state(self, segment, y):
+        return FrameContent(
+            content   = segment.content[y],
+            fg_colors = segment.fg_colors[y],
+            bg_colors = segment.bg_colors[y],
+        )
 
-    @line_profiler.profile
-    def _segment_pixel_states(self, start_x, start_y, segment):
-        self.log.debug('getting segment pixel states', {'start_x': start_x, 'start_y': start_y})
-        for y in range(start_y, start_y + segment.height):
-            for x in range(start_x, start_x + segment.width):
-                coord = PixelCoord(x=x, y=y)
-                # self.log.debug(
-                #     'getting pixel state', {'coord': coord, 'adjusted': {'x': x-start_x, 'y': y-start_y, 'params': {'start_x': start_x, 'start_y': start_y, 'x': x, 'y': y}}}
-                # )
-                yield PixelState(
-                    coord = coord,
-                    ch    = segment.content[y-start_y][x-start_x],
-                    color = PixelColor(
-                        segment.fg_colors[y-start_y][x-start_x],
-                        segment.bg_colors[y-start_y][x-start_x]
-                    )
-                )
+    def _frame_row_state(self, frame, y, start_x, end_x):
+        return FrameContent(
+            frame.content[y][start_x:end_x+1],
+            # separate the colors into fg and bg
+            *zip(*frame.newColorMap[y][start_x:end_x+1]),
+        )
 
     @line_profiler.profile
     def _frame_states(self, start_x, start_y, end_x, end_y, frame_numbers, delay=None) -> [tuple, tuple]:
@@ -314,20 +288,25 @@ class Movie():
         for frame_n in range(frame_numbers[0], frame_numbers[1]+1):
             yield FrameState(
                 delay  = self.frames[frame_n].delay,
-                pixels = tuple(self._pixel_states(start_x, start_y, end_x, end_y, frame_n)),
+                rows = tuple(self._frame_row_state(
+                    self.frames[frame_n], y, start_x, end_x
+                ) for y in range(start_y, end_y+1)),
                 frame_n = frame_n,
+                start = PixelCoord(x=start_x, y=start_y),
+                end   = PixelCoord(x=end_x, y=end_y),
             )
 
     @line_profiler.profile
     def _segment_frame_states(self, start_x, start_y, segment, frame_numbers, delay=None) -> [tuple, tuple]:
         'Returns old pixel states and new pixel states, both as tuples of PixelState'
         self.log.debug('getting frame states', {'start_x': start_x, 'start_y': start_y, 'frame_numbers': frame_numbers})
-        pixel_states = tuple(self._segment_pixel_states(start_x, start_y, segment))
         for frame_n in range(frame_numbers[0], frame_numbers[1]+1):
             yield FrameState(
                 delay   = delay if delay else self.frames[frame_n].delay,
-                pixels  = pixel_states,
+                rows    = tuple(self._segment_row_state(segment, y) for y in range(segment.height)),
                 frame_n = frame_n,
+                start   = PixelCoord(x=start_x, y=start_y),
+                end     = PixelCoord(x=start_x + segment.width, y=start_y + segment.height),
             )
 
     @line_profiler.profile

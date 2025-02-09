@@ -36,7 +36,7 @@ import durdraw.durdraw_file as durfile
 from durdraw.durdraw_ui_widgets import StatusBar
 import durdraw.durdraw_gui_manager as durgui
 import durdraw.durdraw_movie as durmovie
-from durdraw.durdraw_movie import UndoStates, FileState, PixelState, PixelCoord, PixelColor, MouseCoord, FrameState
+from durdraw.durdraw_movie import UndoStates, FileState, MouseCoord, FrameState, FrameContent, PixelCoord
 
 import durdraw.neofetcher as neofetcher
 import durdraw.durdraw_color_curses as dur_ansilib
@@ -890,13 +890,13 @@ class UserInterface():  # Separate view (curses) from this controller
         frame_states = []
         for fn in range(frange[0]-1, frange[1]):
             frame_states.append(
-                FrameState(delay=self.mov.frames[fn].delay, frame_n=fn, pixels=[
-                    PixelState(
-                        coord = PixelCoord(x=x-1, y=y),
-                        ch    = chr(c),
-                        color = PixelColor(*self.mov.frames[fn].newColorMap[y][x-1]),
-                    )
-                ])
+                FrameState(
+                    delay   = self.mov.frames[fn].delay,
+                    frame_n = fn,
+                    rows    = [FrameContent(content=[c], fg_colors=[fg], bg_colors=[bg])],
+                    start   = PixelCoord(x=x-1, y=y),
+                    end     = PixelCoord(x=x, y=y),
+                )
             )
 
         mouse_state = None
@@ -909,13 +909,19 @@ class UserInterface():  # Separate view (curses) from this controller
             old_mouse_state=MouseCoord(PixelCoord(x=self.xy[1], y=self.xy[0]), frame=self.mov.currentFrameNumber-1),
             new_mouse_state=mouse_state,
             old_state=[
-                FrameState(delay=self.mov.currentFrame.delay, frame_n=self.mov.currentFrameNumber-1, pixels=[
-                    PixelState(
-                        coord = PixelCoord(x=x-1, y=y),
-                        ch    = self.mov.currentFrame.content[y][x-1],
-                        color = PixelColor(*self.mov.currentFrame.newColorMap[y][x-1]),
-                    )
-                ])
+                FrameState(
+                    delay=self.mov.currentFrame.delay,
+                    frame_n=self.mov.currentFrameNumber-1, 
+                    rows=[
+                        FrameContent(
+                            content=[self.mov.currentFrame.content[y][x-1]],
+                            fg_colors=[self.mov.currentFrame.newColorMap[y][x-1][0]],
+                            bg_colors=[self.mov.currentFrame.newColorMap[y][x-1][1]],
+                        )
+                    ],
+                    start=PixelCoord(x=x-1, y=y),
+                    end=PixelCoord(x=x-1, y=y),
+                )
             ],
             new_state=frame_states,
         )
@@ -7152,20 +7158,17 @@ Can use ESC or META instead of ALT
         else:
             frange = [frange[0]-1, frange[1]-1]
 
-        old_state, new_state = self.mov.frame_states(
-            start_x       = start_x,
-            start_y       = start_y,
-            segment       = frame_segment,
-            frame_numbers = frange,
-        )
-        # self.log.info('segment_pixel_states', {'old': old_state, 'new': new_state})
-        mouse_state = MouseCoord(
-            pixel = PixelCoord(x=self.xy[1], y=self.xy[0]),
-            frame = self.mov.currentFrameNumber-1
-        )
         new_file_state = FileState(
-            mouse  = mouse_state,
-            frames = new_state,
+            mouse  = MouseCoord(
+                pixel = PixelCoord(x=self.xy[1], y=self.xy[0]),
+                frame = self.mov.currentFrameNumber-1
+            ),
+            frames = self.mov.new_states(
+                start_x       = start_x,
+                start_y       = start_y,
+                segment       = frame_segment,
+                frame_numbers = frange,
+            ),
         )
         self.mov.applyStates(new_file_state)
 
