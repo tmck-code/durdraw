@@ -705,7 +705,7 @@ class UserInterface():  # Separate view (curses) from this controller
         self.mov.applyStates(undo_states.previous)
 
         if undo_states.previous.mouse is not None:
-            self.log.info('moving cursor in undo', {'mouse': undo_states.previous.mouse})
+            # self.log.debug('moving cursor in undo', {'mouse': undo_states.previous.mouse})
             if undo_states.previous.mouse.frame != self.mov.currentFrameNumber-1:
                 self.mov.gotoFrame(undo_states.previous.mouse.frame+1)
             self.xy = [undo_states.previous.mouse.pixel.y, undo_states.previous.mouse.pixel.x]
@@ -721,7 +721,7 @@ class UserInterface():  # Separate view (curses) from this controller
         self.mov.applyStates(undo_states.current)
 
         if undo_states.current.mouse is not None:
-            self.log.info('moving cursor in redo', {'mouse': undo_states.current.mouse})
+            # self.log.debug('moving cursor in redo', {'mouse': undo_states.current.mouse})
             if undo_states.current.mouse.frame != self.mov.currentFrameNumber-1:
                 self.mov.gotoFrame(undo_states.current.mouse.frame+1)
             self.xy = [undo_states.current.mouse.pixel.y, undo_states.current.mouse.pixel.x]
@@ -895,7 +895,7 @@ class UserInterface():  # Separate view (curses) from this controller
                     frame_n = fn,
                     rows    = [FrameContent(content=[c], fg_colors=[fg], bg_colors=[bg])],
                     start   = PixelCoord(x=x-1, y=y),
-                    end     = PixelCoord(x=x, y=y),
+                    end     = PixelCoord(x=x, y=y)
                 )
             )
 
@@ -3475,7 +3475,7 @@ class UserInterface():  # Separate view (curses) from this controller
         new_bg = self.colorbg
         newCharColor = [new_fg, new_bg]
         # Use movie search and replace color function
-    
+
         askingAboutRange = False
         if self.mov.hasMultipleFrames():
             self.promptPrint("Apply to all frames in playback range (Y/N)? ")
@@ -6745,7 +6745,7 @@ Can use ESC or META instead of ALT
                 self.clearStatusBar()
                 self.promptPrint("[C]opy, Cu[t], [D]elete, [F]ill, Co[l]or, Flip [X/Y], New [B]rush, copy to [A]ll Frames in range? " )
 
-                segment       = self.createSegment([firstLineNum, firstColNum], height, width)
+                segment       = self.createSegment(firstColNum-1, firstLineNum, height, width)
                 current_state = self.segmentState(segment, start_x=firstColNum-1, start_y=firstLineNum)
                 new_state, frange = None, None
 
@@ -6978,7 +6978,7 @@ Can use ESC or META instead of ALT
         else:   # only one frame
             self.undo.push()
             new_state = self.pasteSegment(self.xy, self.clipBoard)
-            self.pasteFromClipboard()
+            # self.pasteFromClipboard()
             askingAboutRange = False
         while askingAboutRange:
             prompt_ch = self.stdscr.getch()
@@ -7128,18 +7128,17 @@ Can use ESC or META instead of ALT
         self.pasteSegment(self.xy, self.clipBoard, frange=frange)
 
     @line_profiler.profile
-    def createSegment(self, startPoint, height, width):
-        startPoint = [startPoint[0], startPoint[1]-1]
+    def createSegment(self, start_x, start_y, height, width):
         width, height = width-1, height-1
 
-        self.log.debug('created segment', {'start_x': startPoint[1], 'start_y': startPoint[0], 'height': height, 'width': width, 'frame': {'width': self.mov.sizeX, 'height': self.mov.sizeY}})
+        self.log.debug('created segment', {'start_x': start_x, 'start_y': start_y, 'height': height, 'width': width, 'frame': {'width': self.mov.sizeX, 'height': self.mov.sizeY}})
 
         return FrameSegment.from_frame(
             self.mov.currentFrame,
-            start_x = startPoint[1],
-            start_y = startPoint[0],
-            end_x   = startPoint[1]+width,
-            end_y   = startPoint[0]+height,
+            start_x = start_x,
+            start_y = start_y,
+            end_x   = start_x+width-1,
+            end_y   = start_y+height,
         )
 
     @line_profiler.profile
@@ -7152,7 +7151,7 @@ Can use ESC or META instead of ALT
             ),
             frames = self.mov.current_states(
                 start_x=start_x, start_y=start_y,
-                end_x=start_x+segment.width-1, end_y=start_y+segment.height-1,
+                end_x=start_x+segment.width, end_y=start_y+segment.height-1,
                 frame_numbers=[self.mov.currentFrameNumber-1, self.mov.currentFrameNumber-1],
             )
         )
@@ -7166,11 +7165,12 @@ Can use ESC or META instead of ALT
         else:
             frange = [frange[0]-1, frange[1]-1]
 
+        mouse_state = MouseCoord(
+            pixel = PixelCoord(x=self.xy[1], y=self.xy[0]),
+            frame = self.mov.currentFrameNumber-1
+        )
         new_file_state = FileState(
-            mouse  = MouseCoord(
-                pixel = PixelCoord(x=self.xy[1], y=self.xy[0]),
-                frame = self.mov.currentFrameNumber-1
-            ),
+            mouse  = mouse_state,
             frames = self.mov.new_states(
                 start_x       = start_x,
                 start_y       = start_y,
@@ -7179,6 +7179,8 @@ Can use ESC or META instead of ALT
             ),
         )
         self.mov.applyStates(new_file_state)
+        if mouse_state is not None:
+            self.move_cursor_right()
 
         return new_file_state
 
