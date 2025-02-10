@@ -218,15 +218,14 @@ On another note, here are some logs from the very rough POC implementation in du
   - [ ] Add Line
 - [ ] Box selections
   - [x] Start Selecting
-  - [ ] Ask How To Paste
-  - [ ] Paste From Clipboard
+  - [x] Paste From Clipboard
   - [ ] Copy Segment To All Frames
   - [x] Flip Segment Vertical
   - [x] Flip Segment Horizontal
   - [x] Delete Segment
   - [x] Fill Segment
-  - [ ] Color Segment
-- [ ] Undo/Redo
+  - [x] Color Segment
+- [x] Undo/Redo
   - [x] Clicked Undo
   - [x] Clicked Redo
 
