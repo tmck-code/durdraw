@@ -920,7 +920,7 @@ class UserInterface():  # Separate view (curses) from this controller
                         )
                     ],
                     start=PixelCoord(x=x-1, y=y),
-                    end=PixelCoord(x=x-1, y=y),
+                    end=PixelCoord(x=x, y=y),
                 )
             ],
             new_state=frame_states,
@@ -6970,26 +6970,34 @@ Can use ESC or META instead of ALT
 
     def askHowToPaste(self):
         self.clearStatusBar()
+        current_state, new_state = None, None
+        current_state = self.segmentState(self.clipBoard, start_x=self.xy[1]-1, start_y=self.xy[0])
         if self.mov.hasMultipleFrames():
             self.promptPrint("Paste across all frames in playback range (Y/N)? ")
             askingAboutRange = True
         else:   # only one frame
             self.undo.push()
+            new_state = self.pasteSegment(self.xy, self.clipBoard)
             self.pasteFromClipboard()
             askingAboutRange = False
         while askingAboutRange:
             prompt_ch = self.stdscr.getch()
             if chr(prompt_ch) in ['y', 'Y']:    # yes, all range
                 self.undo.push()
-                self.pasteFromClipboard(frange=self.appState.playbackRange)
+                new_state = self.pasteSegment(self.xy, self.clipBoard, frange=self.appState.playbackRange)
+                # self.pasteFromClipboard(frange=self.appState.playbackRange)
                 askingAboutRange = False
             if chr(prompt_ch) in ['n', 'N']:    # no, single frame only
                 self.undo.push()
-                self.pasteFromClipboard()
+                # self.pasteFromClipboard()
+                new_state = self.pasteSegment(self.xy, self.clipBoard)
                 askingAboutRange = False
             elif prompt_ch == 27:  # esc, cancel
                 askingAboutRange = False
-        prompting = False
+
+        self.mov.undo_register.push(
+            UndoStates(previous = current_state, current = new_state)
+        )
 
     # def pasteFromClipboard(self, startPoint=None, clipBuffer=None, frange=None, transparent=False, pushUndo=True):
     #     if not clipBuffer:
@@ -7105,7 +7113,7 @@ Can use ESC or META instead of ALT
         """ Paste a segment into the current frame, or framge range """
         # self.undo.push()
         self.log.debug('pasting segment', {'startPoint': startPoint, 'segment': segment, 'frange': frange})
-        self.applySegmentChange(
+        return self.applySegmentChange(
             segment,
             start_x = startPoint[1],
             start_y = startPoint[0],
