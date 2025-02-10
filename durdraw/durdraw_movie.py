@@ -276,9 +276,9 @@ class Movie():
 
     def _frame_row_state(self, frame, y, start_x, end_x):
         return FrameContent(
-            frame.content[y][start_x:end_x+1],
+            frame.content[y][start_x:end_x],
             # separate the colors into fg and bg
-            *zip(*frame.newColorMap[y][start_x:end_x+1]),
+            *zip(*frame.newColorMap[y][start_x:end_x]),
         )
 
     @line_profiler.profile
