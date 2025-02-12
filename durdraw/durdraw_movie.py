@@ -270,18 +270,13 @@ class Movie():
 
 
     def search_and_replace_color(self, old_color :int, new_color :int):
-        found = False
         for frame in self.frames:
-            line_num = 0
-            for line in frame.newColorMap:
+            for line_num, line in enumerate(frame.newColorMap):
                 for pair in line:
                     if pair[0] == old_color:
                         frame.newColorMap[line_num][0] = new_color
-                        found = True
                     if pair[1] == old_color:
                         frame.newColorMap[line_num][1] = new_color
-                        found = True
-                line_num += 1
 
     def search_and_replace(self, caller, search_str: str, replace_str: str):
         #search_list = list(search)
