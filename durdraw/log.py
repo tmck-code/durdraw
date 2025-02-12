@@ -21,11 +21,12 @@ usage examples to log messages:
     # {"timestamp": "2024-12-09T15:05:43.904600", "msg": "This is an info message", "data": {"key": "value"}}
 '''
 
-from dataclasses import asdict, is_dataclass
+from dataclasses import asdict, is_dataclass, dataclass
 from datetime import datetime, timezone
 from functools import wraps
 import json
 import logging
+from typing import NamedTuple, ClassVar
 
 CRITICAL: int = logging.CRITICAL
 ERROR:    int = logging.ERROR
@@ -62,11 +63,29 @@ def _json_default(obj: object) -> str:
     if hasattr(obj, '_asdict'):    return obj._asdict()
     return str(obj)
 
+@dataclass
+class LogKeys:
+    'A class to store the format of the log keys.'
+    timestamp: ClassVar[str] = 'timestamp'
+    level:     ClassVar[str] = 'level'
+    name:      ClassVar[str] = 'name'
+    msg:       ClassVar[str] = 'msg'
+    data:      ClassVar[str] = 'data'
+
+@dataclass
+class LogKeysMin(LogKeys):
+    'A class to store the minimum format of the log keys.'
+    timestamp: ClassVar[str] = 'ts'
+    level:     ClassVar[str] = 'lvl'
+    name:      ClassVar[str] = 'k'
+    msg:       ClassVar[str] = 'msg'
+    data:      ClassVar[str] = 'data'
 
 class LogFormatter(logging.Formatter):
     'Custom log formatter that formats log messages as JSON, aka "Structured Logging".'
-    def __init__(self, tz: timezone = timezone.utc, *args, **kwargs):
+    def __init__(self, tz: timezone = timezone.utc, log_keys: LogKeys = LogKeysMin, *args, **kwargs):
         self.tz = tz
+        self.log_keys = log_keys
         super().__init__(*args, **kwargs)
 
     def format(self, record) -> str:
@@ -78,11 +97,11 @@ class LogFormatter(logging.Formatter):
 
         record.msg = json.dumps(
             {
-                'timestamp': datetime.now().astimezone(self.tz).isoformat(),
-                'level':     record.levelname,
-                'name':      record.name,
-                'msg':       record.msg,
-                'data':      kwargs,
+                self.log_keys.timestamp: datetime.now().astimezone(self.tz).isoformat(),
+                self.log_keys.level:     record.levelname,
+                self.log_keys.name:      record.name,
+                self.log_keys.msg:       record.msg,
+                self.log_keys.data:      kwargs,
             },
             default=_json_default,
         )
