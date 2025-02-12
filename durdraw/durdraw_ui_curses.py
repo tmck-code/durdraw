@@ -3215,20 +3215,13 @@ class UserInterface():  # Separate view (curses) from this controller
                                 self.addstr(self.statusBarLineNum-2, 20, "Paint triggered.", curses.color_pair(6) | curses.A_BOLD)
                             # Paint brush onto canvas
                             #drawChar = self.appState.drawChar
-                            painting = True
-                            if not self.appState.brush: # if no brush is set...
-                                painting = False    # don't paint.
-                            if painting:
+                            if self.appState.brush: # if no brush is set...
                                 if self.appState.debug:
                                     self.addstr(self.statusBarLineNum-2, 20, "Paint painting.", curses.color_pair(6) | curses.A_BOLD)
-                                try:
-                                    x_param = mouseX + 1 + self.appState.firstCol
-                                    y_param = mouseY + self.appState.topLine
-                                    #self.insertChar(ord(drawChar), fg=self.colorfg, bg=self.colorbg, x=x_param, y=y_param, moveCursor=False, pushUndo=False)
-                                    self.pasteFromClipboard(startPoint = [y_param, x_param], clipBuffer=self.appState.brush, transparent=True, pushUndo=False)
-                                except IndexError:
-                                    self.notify(f"Error, debug info: x={x_param}, y={y_param}, topLine={self.appState.topLine}, mouseX={mouseX}, mouseY={mouseY}", pause=True)
-                                self.refresh()
+                                self.pasteSegment([mouseY + self.appState.topLine, mouseX + 1 + self.appState.firstCol], self.appState.brush)
+                                self.stdscr.refresh()
+
+                                self.refresh(refreshScreen=False)
                         else:
                             if self.appState.debug:
                                 self.addstr(self.statusBarLineNum-2, 20, "Paint untriggered.", curses.color_pair(5) | curses.A_BOLD)
@@ -6417,17 +6410,13 @@ Can use ESC or META instead of ALT
                     if self.appState.brush != None:
                         # draw brush preview
                         # If we're drawing within the brush area:
-                        if linenum in range(self.appState.mouse_line + topLine, self.appState.mouse_line + self.appState.brush.sizeX + topLine):
-                            if colnum in range(self.appState.mouse_col + self.appState.firstCol, self.appState.mouse_col + self.appState.brush.sizeY + self.appState.firstCol):
+                        if linenum in range(self.appState.mouse_line + topLine, self.appState.mouse_line + self.appState.brush.height + topLine):
+                            if colnum in range(self.appState.mouse_col + self.appState.firstCol, self.appState.mouse_col + self.appState.brush.width + self.appState.firstCol):
                                 #brush_line = linenum - self.appState.mouse_line
                                 brush_line = linenum - self.appState.mouse_line - topLine
                                 brush_col = colnum - self.appState.mouse_col - self.appState.firstCol
-                                try:
-                                    brushChar = self.appState.brush.content[brush_col][brush_line]
-                                except IndexError:
-                                    # This should really never happen now.
-                                    self.notify(f"Index error: bcol: {brush_col}, bline: {brush_line}, col: {colnum}, line: {linenum}, mcol: {self.appState.mouse_col}, {self.appState.mouse_line}", pause=False)
-                                    brushChar = ' '
+                                brushChar = self.appState.brush.content[brush_line][brush_col]
+
                                 # invisible background for brushes
                                 if brushChar == ' ':
                                     pass
@@ -6435,7 +6424,9 @@ Can use ESC or META instead of ALT
                                     # It's a character that we should draw as a brush preview
                                     if self.appState.renderMouseCursor:
                                         charContent = brushChar
-                                        charColor = self.appState.brush.newColorMap[brush_col][brush_line]
+                                        fg = self.appState.brush.fg_colors[brush_line][brush_col]
+                                        bg = self.appState.brush.bg_colors[brush_line][brush_col]
+                                        charColor = [fg, bg]
                 if linenum == self.appState.mouse_line + topLine and colnum == self.appState.mouse_col + self.appState.firstCol:
                     if self.appState.cursorMode == "Draw" and not self.playing and not self.appState.playingHelpScreen:  # Drawing preview instead
                         if self.appState.renderMouseCursor:
@@ -7063,10 +7054,8 @@ Can use ESC or META instead of ALT
         self.clipBoard = segment
 
     @line_profiler.profile
-    def copySegmentToBrush(self, startPoint, height, width):
-        """ startPoint is [line, column] """
-        newBrush = self.copySegmentToBuffer(startPoint, height, width)
-        self.appState.brush = newBrush
+    def copySegmentToBrush(self, segment):
+        self.appState.brush = segment
 
     @line_profiler.profile
     def copySegmentToBuffer(self, startPoint, height, width):
@@ -7119,13 +7108,6 @@ Can use ESC or META instead of ALT
             start_y = startPoint[0],
             frange  = frange,
         )
-
-    def pasteFromClipboard(self, frange=None, transparent=False):
-        self.log.debug(
-            'pasting segment from clipboard',
-            {'frange': frange, 'transparent': transparent, 'xy': self.xy, 'start_x': self.xy[1], 'start_y': self.xy[0]}
-        )
-        self.pasteSegment(self.xy, self.clipBoard, frange=frange)
 
     @line_profiler.profile
     def createSegment(self, start_x, start_y, height, width):

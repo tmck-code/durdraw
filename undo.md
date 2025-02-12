@@ -225,6 +225,8 @@ On another note, here are some logs from the very rough POC implementation in du
   - [x] Delete Segment
   - [x] Fill Segment
   - [x] Color Segment
+  - [ ] Cut Segment
+  - [x] Brush Segment
 - [x] Undo/Redo
   - [x] Clicked Undo
   - [x] Clicked Redo
