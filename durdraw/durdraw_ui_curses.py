@@ -6986,6 +6986,7 @@ Can use ESC or META instead of ALT
             elif prompt_ch == 27:  # esc, cancel
                 askingAboutRange = False
 
+        self.log.debug('pasting segment', {'startPoint': self.xy, 'segment': self.clipBoard})
         self.mov.undo_register.push(
             UndoStates(previous = current_state, current = new_state)
         )
@@ -7101,7 +7102,6 @@ Can use ESC or META instead of ALT
     def pasteSegment(self, startPoint, segment, frange=None):
         """ Paste a segment into the current frame, or framge range """
         # self.undo.push()
-        self.log.debug('pasting segment', {'startPoint': startPoint, 'segment': segment, 'frange': frange})
         return self.applySegmentChange(
             segment,
             start_x = startPoint[1],
@@ -7140,8 +7140,6 @@ Can use ESC or META instead of ALT
 
     @line_profiler.profile
     def applySegmentChange(self, frame_segment, start_x, start_y, frange=None):
-        self.log.debug('applying segment change', {'start_x': start_x, 'start_y': start_y, 'frange': frange})
-
         if frange is None:
             frange = [self.mov.currentFrameNumber-1, self.mov.currentFrameNumber-1]
         else:

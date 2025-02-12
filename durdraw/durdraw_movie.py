@@ -258,7 +258,6 @@ class Movie():
     @line_profiler.profile
     def applyStates(self, state: FileState):
         for frame_state in state.frames:
-            self.log.debug('applying frame state', {'frame': frame_state.frame_n})
             self.applyFrameState(frame_state)
 
     @line_profiler.profile
