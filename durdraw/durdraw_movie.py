@@ -231,43 +231,18 @@ class Movie():
 
     def shrinkCanvasWidth(self, shrinkage):
         self.sizeY = self.sizeY - shrinkage
-        self.opts.sizeY = self.opts.sizeY - shrinkage 
+        self.opts.sizeY = self.opts.sizeY - shrinkage
         #self.width = self.width - shrinkage
 
     def search_and_replace_color_pair(self, old_color, new_color, frange=None):
-        if frange != None:  # apply to all frames in range
-            for frameNum in range(frange[0] - 1, frange[1]):
-            #for frame in self.frames:
-                frame = self.frames[frameNum]
-                line_num = 0
-                col_num = 0
-                for line in frame.newColorMap:
-                    for pair in line:
-                        if pair == old_color:
-                            try:
-                                frame.newColorMap[line_num][col_num] = new_color
-                            except:
-                                pdb.set_trace()
-                            #found = True
-                        col_num += 1
-                    line_num += 1
-                    col_num = 0
-        else:   # only apply to current frame
-            frame = self.currentFrame
-            line_num = 0
-            col_num = 0
-            for line in frame.newColorMap:
-                for pair in line:
+        if frange is None:
+            frange = [self.currentFrameNumber, self.currentFrameNumber]
+        for frameNum in range(frange[0] - 1, frange[1]):
+            frame = self.frames[frameNum]
+            for line_num, line in enumerate(frame.newColorMap):
+                for col_num, pair in enumerate(line):
                     if pair == old_color:
-                        try:
-                            frame.newColorMap[line_num][col_num] = new_color
-                        except:
-                            pdb.set_trace()
-                        #found = True
-                    col_num += 1
-                line_num += 1
-                col_num = 0
-
+                        frame.newColorMap[line_num][col_num] = new_color
 
     def search_and_replace_color(self, old_color :int, new_color :int):
         for frame in self.frames:
