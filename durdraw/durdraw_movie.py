@@ -4,6 +4,7 @@ import durdraw.log as log
 import json
 import pdb
 import re
+from functools import partial
 
 def init_list_colorMap(width, height):
     """ Builds a color map consisting of a list of lists """
@@ -320,22 +321,14 @@ class Movie():
 
 
     def search_for_string(self, search_str: str, caller=None):
-        #search_list = list(search)
-        found = False
-        frame_num = 0
-        line_num = 0
-        for frame in self.frames:
-            line_num = 0
-            for line in frame.content:
-                line_str = ''.join(line)
-                if search_str in line_str:
-                    column_num = line_str.index(search_str) + 1
-                    frame_num += 1
-                    found = True
-                    return {"line": line_num, "col": column_num, "frame": frame_num}
-                line_num += 1
-            frame_num += 1
-        return found    # should be false if execution reaches this point
+        j = partial(str.join, '')
+
+        for frame_n, frame in enumerate(self.frames):
+            for line_n, s in enumerate(map(j, frame.content)):
+                if search_str in s:
+                    continue
+                return {"line": line_n, "col": s.find(search_str)+1, "frame": frame_n+1}
+        return False # should be false if execution reaches this point
 
 
     def change_palette_16_to_256(self):
