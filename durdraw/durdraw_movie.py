@@ -296,8 +296,7 @@ class Movie():
         for frame_n, frame in enumerate(self.frames):
             for line_n, s in enumerate(map(j, frame.content)):
                 if search_str in s:
-                    continue
-                return {"line": line_n, "col": s.find(search_str)+1, "frame": frame_n+1}
+                    return {"line": line_n, "col": s.find(search_str)+1, "frame": frame_n+1}
         return False # should be false if execution reaches this point
 
 
